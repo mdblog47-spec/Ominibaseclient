@@ -152,7 +152,7 @@ function newWork(id,pcid){
   <div><label>Days</label><input id="dy" type="number" min="0" value="${p?p.days:''}"></div><div><label>Total amount</label><input id="tt" type="number" min="0" value="${p?p.total:''}" oninput="calc()"></div>
   <div><label>Advance / paid</label><input id="ad" type="number" min="0" value="${p?p.paid:''}" ${p?'readonly':''} oninput="calc()"></div><div><label>Dues</label><input id="du" readonly value="${p?p.dues:''}"></div></div>
   ${p?'<small class="mut">Paid payments ka sum hai — badalne ke liye kaam ke andar Payment add/delete karo. Naam/Phone/Email/Business is client ke sab kaam me badlega.</small>':''}
-  <label>Payment kaise hoga</label><select id="pp"><option value="1" ${p&&pl(p)>1?'':'selected'}>Ek baar (one time)</option><option value="3" ${p&&pl(p)>1?'selected':''}>3 installment</option></select>
+  <div class="g2"><div><label>Payment kaise hoga</label><select id="pp"><option value="1" ${p&&pl(p)>1?'':'selected'}>Ek baar (one time)</option><option value="3" ${p&&pl(p)>1?'selected':''}>3 installment</option></select></div>${p?'':`<div><label>Payment mode (advance kaise mila)</label><select id="am">${MODES.map(m=>`<option>${m}</option>`).join('')}</select></div>`}</div>
   <label>Internal note (AI ko nahi jata)</label><textarea id="nt">${esc(p?nt(p):'')}</textarea>
   <div class="bar"><button class="b" id="svb" onclick="saveWork('${id||''}')">Save</button><button class="b o" onclick="closeM()">Cancel</button></div>`);
   if(p)$('#nn').style.display='block';else if(pcid)$('#nn').style.display='none'}
@@ -172,12 +172,13 @@ async function saveWork(eid){
     Object.assign(p,{service:body.service,status:body.status,days:+body.days,total:+body.total,note:body.note,dues:Math.max(0,+body.total-p.paid)});
     saveLocal();closeM();draw();sync();return}
   // ---- naya kaam ----
-  const p=Object.assign({},body,{paid:$('#ad').value});let cid=$('#nc').value;
+  const p=Object.assign({},body,{paid:0});const adv=+$('#ad').value||0,am=$('#am').value;let cid=$('#nc').value;
   if(!cid){
     if(!_nc){const cr=await run(()=>api('saveClient',{client:cf}));if(!cr){$('#svb').disabled=false;return}S.clients.push(cr.client);_nc=cr.client.id}
     cid=_nc}
   p.clientId=cid;
   const r=await run(()=>api('saveProject',{project:p}),'Kaam save ho gaya');if(!r){$('#svb').disabled=false;return}
+  if(adv>0)await run(()=>api('addPayment',{payment:{projectId:r.project.id,amount:adv,paidAt:new Date().toISOString(),mode:am,note:'Advance / shuru me jama'}}));
   await sync();closeM();
   if(confirm('"Kaam start" mail bhejna hai?'))compose({clientId:r.project.clientId,projectId:r.project.id,purpose:'started',work:p.service})}
 
@@ -186,7 +187,7 @@ function cpage(cid){
   const c=cl(cid),L=S.projects.filter(p=>p.clientId===cid),t=L.reduce((a,p)=>a+(+p.total||0),0),pd=L.reduce((a,p)=>a+(+p.paid||0),0);
   modal(`<h3>${esc(c.name)}</h3><small>${c.company?esc(c.company)+' · ':''}${esc(c.phone)} · ${esc(c.email)}</small>
   <div class="nums"><span>Kaam<b>${L.length}</b></span><span>Total<b>${money(t)}</b></span><span>Mila<b>${money(pd)}</b></span><span>Baaki<b class="${t-pd>0?'du':''}">${money(t-pd)}</b></span></div>
-  <div class="bar"><button class="b" onclick="newWork('','${cid}')">+ Naya kaam add karo</button><button class="b o" onclick="cliForm('${cid}')">Client details edit</button></div>
+  <div class="bar"><button class="b o" onclick="cliForm('${cid}')">Client details edit</button></div>
   <h2>Services</h2>${L.map(p=>`<div class="card" style="cursor:pointer" onclick="detail('${p.id}')"><b>${esc(p.service)}</b> <span class="badge ${p.status==='Completed'?'g':''}">${p.status}</span><small>${pl(p)>1?'3 installment':'Ek baar payment'} · Days ${p.days||'-'} · Total ${money(p.total)} · Mila ${money(p.paid)} · Baaki ${money(p.dues)}</small></div>`).join('')||'<p class="mut">Abhi koi kaam nahi</p>'}
   <div class="bar"><button class="b o" onclick="closeM()">Band karo</button></div>`)}
 
@@ -198,18 +199,26 @@ function detail(id){
   <div><label>Total amount</label><input id="dt" type="number" value="${p.total}"></div><div><label>Payment kaise hoga</label><select id="dp"><option value="1" ${n>1?'':'selected'}>Ek baar (one time)</option><option value="3" ${n>1?'selected':''}>3 installment</option></select></div></div>
   <div class="nums"><span>Total<b>${money(p.total)}</b></span><span>Mila<b>${money(p.paid)}</b></span><span>Baaki<b class="${p.dues>0?'du':''}">${money(p.dues)}</b></span></div>
   <label>Internal note</label><textarea id="dn">${esc(nt(p))}</textarea>
-  <div class="bar"><button class="b" onclick="saveDetail('${id}')">Save</button><button class="b o" onclick="compose({clientId:'${p.clientId}',projectId:'${id}',purpose:'payment',work:'Payment history',includeMoney:true})">Payment history mail</button><button class="b r" onclick="delWork('${id}')">Kaam delete</button></div>
+  <div id="ul"><p class="mut">Requests load ho rahi hain…</p></div>
+  <div class="bar"><button class="b" onclick="saveDetail('${id}')">Save</button><button class="b o" onclick="payHist('${id}')">Payment history</button><button class="b r" onclick="delWork('${id}')">Kaam delete</button></div>
   <div id="dl"><p class="mut">Payments load ho rahi hain…</p></div><div class="bar"><button class="b o" onclick="closeM()">Band karo</button></div>`);
-  Promise.all([api('getPayments',{projectId:id}),api('getUpdates',{projectId:id})]).then(([a,b])=>{
-    const el=$('#dl');if(!el)return;const pa=a.payments,up=b.updates,pp=pr(id),n=pl(pp),left=Math.max(0,pp.total-pp.paid),sug=left?Math.ceil(left/Math.max(1,n-pa.length)):'';
-    const lb=i=>n>1?`Installment ${i+1}/${n}`:'Payment';
-    el.innerHTML=`<h2>Payments (kab kitna mila)</h2>${pa.map((x,i)=>`<div class="card"><b>${lb(i)}</b> · ${money(x.amount)} · ${esc(x.mode||'-')} <small>${fdt(x.paidAt)}${x.note?' · '+esc(x.note):''}</small><button class="b r" onclick="delPay('${x.id}','${id}')">Delete</button></div>`).join('')||'<p class="mut">Abhi koi payment nahi</p>'}
-    ${left?Array.from({length:Math.max(0,n-pa.length)},(_,k)=>`<div class="card mut">${lb(pa.length+k)} · baaki · approx ${money(sug)}</div>`).join(''):'<p class="mut">Poora payment mil gaya ✔</p>'}
-    <div class="g2"><div><label>Amount</label><input id="pa" type="number" min="1" value="${sug}"></div><div><label>Date & time</label><input id="pd" type="datetime-local" value="${nowLocal()}"></div><div><label>Mode</label><select id="pm">${MODES.map(m=>`<option>${m}</option>`).join('')}</select></div><div><label>Note</label><input id="pn"></div></div>
-    <div class="bar"><button class="b" onclick="addPay('${id}')">Payment add karo</button></div>
-    <h2>Change / Update requests</h2>${up.map(u=>`<div class="card"><b>${esc(u.type)}</b> <span class="badge ${u.status==='Completed'?'g':''}">${u.status}</span><div>${esc(u.description)}</div><small>${u.days?u.days+' din':''}</small>${u.status!=='Completed'?`<button class="b" onclick="doneUp('${u.id}','${id}')">Complete karke mail bhejo</button>`:''}</div>`).join('')}
+  api('getUpdates',{projectId:id}).then(b=>{const el=$('#ul');if(!el)return;const up=b.updates;
+    el.innerHTML=`<h2>Change / Update requests</h2><small class="mut">Client kuch naya ya change maange to yahin add karo — upar Save dabana zaroori nahi.</small>${up.map(u=>`<div class="card"><b>${esc(u.type)}</b> <span class="badge ${u.status==='Completed'?'g':''}">${u.status}</span><div>${esc(u.description)}</div><small>${u.days?u.days+' din':''}</small>${u.status!=='Completed'?`<button class="b" onclick="doneUp('${u.id}','${id}')">Complete karke mail bhejo</button>`:''}</div>`).join('')}
     <div class="g2"><div><label>Type</label><select id="ut"><option>Change</option><option>Replace</option><option>Update</option></select></div><div><label>Days (optional)</label><input id="ud" type="number"></div></div><label>Note</label><input id="un">
-    <div class="bar"><button class="b o" onclick="addUp('${id}')">Request add karo</button></div>`}).catch(e=>{const el=$('#dl');if(el)el.innerHTML='<p class="mut">'+esc(e.message)+'</p>'})}
+    <div class="bar"><button class="b o" onclick="addUp('${id}')">Request add karo</button></div>`}).catch(e=>{const el=$('#ul');if(el)el.innerHTML='<p class="mut">'+esc(e.message)+'</p>'});
+  api('getPayments',{projectId:id}).then(a=>{const el=$('#dl');if(!el)return;const pa=a.payments,pp=pr(id),n=pl(pp),left=Math.max(0,pp.total-pp.paid),sug=left?Math.ceil(left/Math.max(1,n-pa.length)):'';
+    const lb=i=>n>1?`Installment ${i+1}/${n}`:'Payment';
+    el.innerHTML=`<h2>Payment add karo</h2>${left?Array.from({length:Math.max(0,n-pa.length)},(_,k)=>`<div class="card mut">${lb(pa.length+k)} · baaki · approx ${money(sug)}</div>`).join(''):'<p class="mut">Poora payment mil gaya ✔</p>'}
+    <div class="g2"><div><label>Amount</label><input id="pa" type="number" min="1" value="${sug}"></div><div><label>Date & time</label><input id="pd" type="datetime-local" value="${nowLocal()}"></div><div><label>Mode</label><select id="pm">${MODES.map(m=>`<option>${m}</option>`).join('')}</select></div><div><label>Note</label><input id="pn"></div></div>
+    <div class="bar"><button class="b" onclick="addPay('${id}')">Payment add karo</button></div>`}).catch(e=>{const el=$('#dl');if(el)el.innerHTML='<p class="mut">'+esc(e.message)+'</p>'})}
+async function payHist(id){
+  const p=pr(id),n=pl(p);modal('<p class="mut">Load ho raha hai…</p>');
+  const r=await run(()=>api('getPayments',{projectId:id}));if(!r)return detail(id);
+  const pa=r.payments,lb=i=>n>1?`Installment ${i+1}/${n}`:'Payment';
+  modal(`<button class="b o" onclick="detail('${id}')">← ${esc(p.service)}</button><h3>Payment history</h3><small>${esc(p.clientName)} — ${esc(p.service)}</small>
+  <div class="nums"><span>Total<b>${money(p.total)}</b></span><span>Mila<b>${money(p.paid)}</b></span><span>Baaki<b class="${p.dues>0?'du':''}">${money(p.dues)}</b></span></div>
+  ${pa.map((x,i)=>`<div class="card"><b>${lb(i)}</b> · ${money(x.amount)} · ${esc(x.mode||'-')}<small>${fdt(x.paidAt)}${x.note?' · '+esc(x.note):''}</small></div>`).join('')||'<p class="mut">Abhi koi payment nahi</p>'}
+  <div class="bar"><button class="b o" onclick="compose({clientId:'${p.clientId}',projectId:'${id}',purpose:'payment',work:'Payment history',includeMoney:true})">Mail bhejo</button><button class="b o" onclick="closeM()">Band karo</button></div>`)}
 function nowLocal(){const d=new Date();d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,16)}
 async function saveDetail(id){const patch={status:$('#ds').value,days:$('#dd').value,total:$('#dt').value,note:enc($('#dn').value,$('#dp').value)};const r=await run(()=>api('updateProject',{projectId:id,patch}),'Save ho gaya');if(r){const p=pr(id);Object.assign(p,{status:patch.status,days:+patch.days,total:+patch.total,note:patch.note,dues:+patch.total-p.paid});saveLocal();draw();sync()}}
 async function delWork(id){const p=pr(id);if(!confirm(`"${p.clientName} — ${p.service}" delete karein? Uski payments aur requests bhi delete ho jayengi.`))return;
@@ -220,8 +229,7 @@ async function addPay(id){
   if(confirm('"Payment mil gayi" mail bhejna hai?'))return compose({clientId:p.clientId,projectId:id,purpose:'payment_received',work:'Payment received',includeMoney:true});
   if(p.status==='Completed'&&p.dues===0&&confirm('Dues 0 hain. Client history me bhejein?'))arch(id,true)}
 async function delPay(pid,id){if(!confirm('Payment delete karein?'))return;const r=await run(()=>api('deletePayment',{paymentId:pid}),'Delete ho gayi');if(r){await sync();detail(id)}}
-async function addUp(id){const t=$('#ut').value,n=$('#un').value;const r=await run(()=>api('addUpdate',{update:{projectId:id,type:t,description:n,days:$('#ud').value}}),'Request add ho gayi');if(!r)return;sync();detail(id);
-  if(confirm('"Request mili" mail bhejna hai?'))compose({clientId:pr(id).clientId,projectId:id,purpose:'update_received',work:t+' request',details:n,updateId:r.update.id})}
+async function addUp(id){const t=$('#ut').value,n=$('#un').value;const r=await run(()=>api('addUpdate',{update:{projectId:id,type:t,description:n,days:$('#ud').value}}),'Request add ho gayi');if(!r)return;sync();compose({clientId:pr(id).clientId,projectId:id,purpose:'update_received',work:t+' request',details:n,updateId:r.update.id});gen()}
 async function doneUp(uid,id){const r=await run(()=>api('setUpdateStatus',{updateId:uid,status:'Completed'}),'Completed mark ho gaya');if(!r)return;
   const g=await api('getUpdates',{projectId:id}),u=g.updates.find(x=>x.id===uid)||{};sync();compose({clientId:pr(id).clientId,projectId:id,purpose:'update_completed',work:(u.type||'Update')+' complete',details:u.description||'',updateId:uid})}
 
