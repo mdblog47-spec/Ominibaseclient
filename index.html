@@ -72,6 +72,9 @@ nav button{padding:8px 12px}
 <div id="toast"></div>
 <script>
 const DEFAULT_API='https://script.google.com/macros/s/AKfycbyYw03VeCYKDtNWiWTX_R4oz9bT5SiX3nVpXwZ6SkRouhTOFk1g-uNzZCxJ1Uld_NVTkw/exec';
+/* ===== TEMPORARY: password lock band. Final hone pe NO_LOCK=false kar dena ===== */
+const NO_LOCK=true;
+const AUTO_PW=''; // Apps Script me APP_PASSWORD set hai to yahan wahi password likho, warna khali chhod do
 const SERVICES=['Control Management System','Attendance Management System','Custom Form','Website'];
 const MODES=['Cash','UPI','Bank','Cheque'];
 const PURPOSES=[['general','General update'],['started','Kaam start'],['update_received','Request mili'],['update_completed','Update complete'],['payment','Payment reminder'],['payment_received','Payment mil gaya'],['final_summary','Final thank-you']];
@@ -95,7 +98,7 @@ async function api(action,body={}){
 async function run(fn,ok){try{const r=await fn();if(ok)toast(ok);return r}catch(e){toast(e.message);if(e.message==='Password galat hai')lockNow(true);return null}}
 /* ---- Lock ---- */
 async function sha(s){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode('cm:'+s));return[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}
-function lockNow(forget){PW='';closeM();if(forget){localStorage.removeItem('cmh')}$('#lp').value='';$('#le').textContent='';$('#lock').style.display='flex';$('#lp').focus()}
+function lockNow(forget){if(NO_LOCK)return;PW='';closeM();if(forget){localStorage.removeItem('cmh')}$('#lp').value='';$('#le').textContent='';$('#lock').style.display='flex';$('#lp').focus()}
 function showApp(){$('#lock').style.display='none';draw()}
 async function unlock(){
   const v=$('#lp').value;if(!v)return;$('#le').textContent='';const h=await sha(v),saved=localStorage.cmh,cache=localStorage.cmd;
@@ -111,7 +114,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)hid=Date.no
 /* ---- Data ---- */
 async function sync(){
   $('#sy').textContent='Sync…';
-  try{const j=await api('getAll');S={clients:j.clients,projects:j.projects};localStorage.cmd=JSON.stringify(S);if(PW)draw()}
+  try{const j=await api('getAll');S={clients:j.clients,projects:j.projects};localStorage.cmd=JSON.stringify(S);if(PW||NO_LOCK)draw()}
   catch(e){toast(e.message);if(e.message==='Password galat hai')lockNow(true)}
   $('#sy').textContent='';return true}
 const load=sync;
@@ -120,14 +123,14 @@ function modal(h){$('#m').innerHTML=h;$('#mb').style.display='flex'}
 function closeM(){$('#mb').style.display='none'}
 $('#mb').onclick=e=>{if(e.target.id==='mb')closeM()};
 function nav(){$('#nav').innerHTML=[['work','Client Work'],['cli','Clients'],['hist','History'],['mail','Quick Mail'],['set','Settings']].map(([k,l])=>`<button class="${tab===k?'on':''}" onclick="tab='${k}';draw()">${l}</button>`).join('')}
-function draw(){if(!PW)return;nav();({work:vWork,cli:vCli,hist:vHist,mail:vMail,set:vSet})[tab]()}
+function draw(){if(!PW&&!NO_LOCK)return;nav();({work:vWork,cli:vCli,hist:vHist,mail:vMail,set:vSet})[tab]()}
 
 /* ---- Client Work ---- */
 function acts(p){
   if(p.status==='Upcoming')return `<button class="b" onclick="event.stopPropagation();setStage('${p.id}','Running')">Running karo</button>`;
-  if(p.status==='Running')return `<button class="b" onclick="event.stopPropagation();setStage('${p.id}','Completed')">Complete karo</button>`;
+  if(p.status==='Running')return `<button class="b" onclick="event.stopPropagation();setStage('${p.id}','Completed')">Complete karo</button><button class="b o" onclick="event.stopPropagation();newWork('${p.id}')">Edit</button>`;
   return p.dues>0?`<span class="badge">Payment baaki</span>`:`<button class="b" onclick="event.stopPropagation();arch('${p.id}',true)">Client history me bhejo</button>`}
-function wcard(p){return `<div class="wc" onclick="detail('${p.id}')"><div><b>${esc(p.clientName)}</b><small>${esc(p.phone)} ${esc(p.email)}</small></div>
+function wcard(p){return `<div class="wc" onclick="detail('${p.id}')"><div><b>${esc(p.clientName)}</b><small>${esc(p.phone)} ${esc(p.email)}</small>${cl(p.clientId).company?`<small>${esc(cl(p.clientId).company)}</small>`:''}</div>
   <div>${esc(p.service)}${p.pending?` <span class="badge">${p.pending} request</span>`:''}</div>
   <div class="nums"><span>Days<b>${p.days||'-'}</b></span><span>Total<b>${money(p.total)}</b></span><span>Paid<b>${money(p.paid)}</b></span><span>Dues<b class="${p.dues>0?'du':''}">${money(p.dues)}</b></span></div><div>${acts(p)}</div></div>`}
 function vWork(){
@@ -136,19 +139,41 @@ function vWork(){
   STAGES.map(st=>{const L=live.filter(p=>p.status===st);return `<h2 class="s-${st}">${st} <span class="cnt">${L.length}</span></h2><div class="grid">${L.map(wcard).join('')||'<p class="mut">Koi kaam nahi</p>'}</div>`}).join('')}
 async function setStage(id,status){const p=pr(id),old=p.status;p.status=status;saveLocal();draw();const r=await run(()=>api('updateProject',{projectId:id,patch:{status}}),status+' ho gaya');if(!r){p.status=old;draw()}else sync()}
 async function arch(id,archived){const r=await run(()=>api('setArchived',{projectId:id,archived}),archived?'History me bhej diya':'Wapas Completed me aa gaya');if(r){const p=pr(id);if(p){p.archived=archived;saveLocal()}closeM();draw();sync()}}
-function newWork(){
-  modal(`<h3>Naya kaam</h3><label>Client</label><select id="nc" onchange="$('#nn').style.display=this.value?'none':'block'"><option value="">+ Naya client</option>${S.clients.map(c=>`<option value="${c.id}">${esc(c.name)} (${esc(c.phone)})</option>`).join('')}</select>
-  <div id="nn"><div class="g2"><div><label>Naam</label><input id="cn"></div><div><label>Phone</label><input id="cp" inputmode="tel"></div></div><label>Email (zaroori)</label><input id="ce" type="email"></div>
-  <div class="g2"><div><label>Service</label><select id="sv">${SERVICES.map(s=>`<option>${s}</option>`).join('')}</select></div><div><label>Section</label><select id="sg"><option>Upcoming</option><option>Running</option></select></div>
-  <div><label>Days</label><input id="dy" type="number" min="0"></div><div><label>Total amount</label><input id="tt" type="number" min="0" oninput="calc()"></div>
-  <div><label>Advance / paid</label><input id="ad" type="number" min="0" oninput="calc()"></div><div><label>Dues</label><input id="du" readonly></div></div>
-  <label>Internal note (AI ko nahi jata)</label><textarea id="nt"></textarea>
-  <div class="bar"><button class="b" id="svb" onclick="saveWork()">Save</button><button class="b o" onclick="closeM()">Cancel</button></div>`)}
+let _nc='';
+function newWork(id){
+  _nc='';const p=id?pr(id):null,c=p?cl(p.clientId):{};
+  const stg=p?STAGES:['Upcoming','Running'];
+  modal(`<h3>${p?'Kaam edit karo':'Naya kaam'}</h3>${p?'':`<label>Client</label><select id="nc" onchange="$('#nn').style.display=this.value?'none':'block'"><option value="">+ Naya client</option>${S.clients.map(c=>`<option value="${c.id}">${esc(c.name)} (${esc(c.phone)})</option>`).join('')}</select>`}
+  <div id="nn"><div class="g2"><div><label>Naam</label><input id="cn" value="${esc(p?p.clientName:'')}"></div><div><label>Phone</label><input id="cp" inputmode="tel" value="${esc(p?p.phone:'')}"></div></div><label>Email (zaroori)</label><input id="ce" type="email" value="${esc(p?p.email:'')}"><label>Business name</label><input id="cb" value="${esc(c.company)}"></div>
+  <div class="g2"><div><label>Service</label><select id="sv">${SERVICES.map(s=>`<option ${p&&s===p.service?'selected':''}>${s}</option>`).join('')}</select></div><div><label>Section</label><select id="sg">${stg.map(s=>`<option ${p&&s===p.status?'selected':''}>${s}</option>`).join('')}</select></div>
+  <div><label>Days</label><input id="dy" type="number" min="0" value="${p?p.days:''}"></div><div><label>Total amount</label><input id="tt" type="number" min="0" value="${p?p.total:''}" oninput="calc()"></div>
+  <div><label>Advance / paid</label><input id="ad" type="number" min="0" value="${p?p.paid:''}" ${p?'readonly':''} oninput="calc()"></div><div><label>Dues</label><input id="du" readonly value="${p?p.dues:''}"></div></div>
+  ${p?'<small class="mut">Paid payments ka sum hai — badalne ke liye kaam ke andar Payment add/delete karo. Naam/Phone/Email/Business is client ke sab kaam me badlega.</small>':''}
+  <label>Internal note (AI ko nahi jata)</label><textarea id="nt">${esc(p?p.note:'')}</textarea>
+  <div class="bar"><button class="b" id="svb" onclick="saveWork('${id||''}')">Save</button><button class="b o" onclick="closeM()">Cancel</button></div>`);
+  if(p)$('#nn').style.display='block'}
 function calc(){$('#du').value=Math.max(0,(+$('#tt').value||0)-(+$('#ad').value||0))}
-async function saveWork(){
-  const cid=$('#nc').value,p={service:$('#sv').value,status:$('#sg').value,days:$('#dy').value,total:$('#tt').value,paid:$('#ad').value,note:$('#nt').value};
-  if(cid)p.clientId=cid;else p.newClient={name:$('#cn').value,phone:$('#cp').value,email:$('#ce').value};
-  $('#svb').disabled=true;const r=await run(()=>api('saveProject',{project:p}),'Kaam save ho gaya');if(!r){$('#svb').disabled=false;return}
+async function saveWork(eid){
+  const body={service:$('#sv').value,status:$('#sg').value,days:$('#dy').value,total:$('#tt').value,note:$('#nt').value};
+  const cf={name:$('#cn').value,phone:$('#cp').value,email:$('#ce').value,company:$('#cb').value};
+  $('#svb').disabled=true;
+  if(eid){ // ---- edit ----
+    const p=pr(eid),c=cl(p.clientId);
+    if(['name','phone','email','company'].some(k=>(c[k]||'')!==cf[k])){
+      const r1=await run(()=>api('updateClient',{client:Object.assign({id:p.clientId},cf)}));
+      if(!r1){$('#svb').disabled=false;return}
+      Object.assign(c,cf);S.projects.forEach(x=>{if(x.clientId===p.clientId){x.clientName=cf.name;x.phone=cf.phone;x.email=cf.email}})}
+    const r=await run(()=>api('updateProject',{projectId:eid,patch:body}),'Kaam update ho gaya');
+    if(!r){$('#svb').disabled=false;return}
+    Object.assign(p,{service:body.service,status:body.status,days:+body.days,total:+body.total,note:body.note,dues:Math.max(0,+body.total-p.paid)});
+    saveLocal();closeM();draw();sync();return}
+  // ---- naya kaam ----
+  const p=Object.assign({},body,{paid:$('#ad').value});let cid=$('#nc').value;
+  if(!cid){
+    if(!_nc){const cr=await run(()=>api('saveClient',{client:cf}));if(!cr){$('#svb').disabled=false;return}S.clients.push(cr.client);_nc=cr.client.id}
+    cid=_nc}
+  p.clientId=cid;
+  const r=await run(()=>api('saveProject',{project:p}),'Kaam save ho gaya');if(!r){$('#svb').disabled=false;return}
   await sync();closeM();
   if(confirm('"Kaam start" mail bhejna hai?'))compose({clientId:r.project.clientId,projectId:r.project.id,purpose:'started',work:p.service})}
 
@@ -258,9 +283,10 @@ function vSet(){$('#v').innerHTML=`<h2>Settings</h2><div class="card"><label>Sen
 /* ---- PWA ---- */
 let ip;addEventListener('beforeinstallprompt',e=>{e.preventDefault();ip=e;$('#inst').style.display='inline-block'});
 $('#inst').onclick=async()=>{if(ip){ip.prompt();await ip.userChoice;ip=null;$('#inst').style.display='none'}};
-const off=()=>$('#off').style.display=navigator.onLine?'none':'block';addEventListener('online',()=>{off();if(PW)sync()});addEventListener('offline',off);off();
+const off=()=>$('#off').style.display=navigator.onLine?'none':'block';addEventListener('online',()=>{off();if(PW||NO_LOCK)sync()});addEventListener('offline',off);off();
 if('serviceWorker'in navigator)addEventListener('load',()=>navigator.serviceWorker.register('sw.js'));
-$('#lock').style.display='flex';setTimeout(()=>$('#lp').focus(),50);
+if(NO_LOCK){PW=AUTO_PW;try{S=JSON.parse(localStorage.cmd)}catch{}if(!S||!S.clients)S={clients:[],projects:[]};showApp();sync()}
+else{$('#lock').style.display='flex';setTimeout(()=>$('#lp').focus(),50)}
 </script>
 </body>
 </html>
