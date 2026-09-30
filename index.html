@@ -233,9 +233,14 @@ async function doneUp(uid,id){const r=await run(()=>api('setUpdateStatus',{updat
   const g=await api('getUpdates',{projectId:id}),u=g.updates.find(x=>x.id===uid)||{};sync();compose({clientId:pr(id).clientId,projectId:id,purpose:'update_completed',work:(u.type||'Update')+' complete',details:u.description||'',updateId:uid})}
 
 /* ---- Clients (add / edit / delete) ---- */
+let cq='';
 function vCli(){
-  $('#v').innerHTML=`<div class="bar"><button class="b" onclick="cliForm()">+ Naya client</button></div><div class="grid">${S.clients.map(c=>{const n=S.projects.filter(p=>p.clientId===c.id).length;
-  return `<div class="wc"><div><b>${esc(c.name)}</b><small>${esc(c.phone)}</small><small>${esc(c.email)}${c.company?' · '+esc(c.company):''}</small></div><small>${n} kaam</small><div><button class="b o" onclick="cliForm('${c.id}')">Edit</button><button class="b r" onclick="cliDel('${c.id}')">Delete</button></div></div>`}).join('')||'<p class="mut">Abhi koi client nahi</p>'}</div>`}
+  $('#v').innerHTML=`<div class="bar"><button class="b" onclick="cliForm()">+ Naya client</button></div><div class="bar"><input id="csearch" placeholder="Naam, phone ya business name se search karo" value="${esc(cq)}" oninput="cq=this.value;cList()"></div><div class="grid" id="clist"></div>`;cList()}
+function cList(){
+  const s=cq.trim().toLowerCase(),d=s.replace(/\D/g,'');
+  const L=S.clients.filter(c=>!s||[c.name,c.company,c.email].join(' ').toLowerCase().includes(s)||(d&&String(c.phone||'').replace(/\D/g,'').includes(d)));
+  $('#clist').innerHTML=L.map(c=>{const n=S.projects.filter(p=>p.clientId===c.id).length;
+  return `<div class="wc"><div><b>${esc(c.name)}</b><small>${esc(c.phone)}</small><small>${esc(c.email)}${c.company?' · '+esc(c.company):''}</small></div><small>${n} kaam</small><div><button class="b o" onclick="cliForm('${c.id}')">Edit</button><button class="b r" onclick="cliDel('${c.id}')">Delete</button></div></div>`}).join('')||`<p class="mut">${S.clients.length?'Koi client nahi mila':'Abhi koi client nahi'}</p>`}
 function cliForm(id){const c=id?cl(id):{};
   modal(`<h3>${id?'Client edit karo':'Naya client'}</h3><label>Naam</label><input id="fn" value="${esc(c.name)}"><div class="g2"><div><label>Phone</label><input id="fp" inputmode="tel" value="${esc(c.phone)}"></div><div><label>Company (optional)</label><input id="fc" value="${esc(c.company)}"></div></div><label>Email</label><input id="fe" type="email" value="${esc(c.email)}">
   <div class="bar"><button class="b" id="fb" onclick="cliSave('${id||''}')">Save</button><button class="b o" onclick="closeM()">Cancel</button></div>`)}
