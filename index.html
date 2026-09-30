@@ -86,9 +86,9 @@ const cfg=()=>{try{return JSON.parse(localStorage.cm||'{}')}catch{return{}}};
 const money=n=>'₹'+Number(n||0).toLocaleString('en-IN');
 const fdt=v=>new Date(v).toLocaleString('en-IN',{timeZone:'Asia/Kolkata',day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',hour12:true})+' IST';
 let S={clients:[],projects:[]},tab='work',q='',flt='all',C={},PW='',hid=0;
-const pl=p=>{const m=/^\[plan:(\d)\]/.exec(p.note||'');return m?+m[1]:1};
+const pl=p=>{if(+p.plan>0)return +p.plan;const m=/^\[plan:(\d)\]/.exec(p.note||'');return m?+m[1]:1};
 const nt=p=>String(p.note||'').replace(/^\[plan:\d\]\s?/,'');
-const enc=(t,n)=>(+n>1?`[plan:${n}] `:'')+t;
+const enc=t=>t;
 const pr=id=>S.projects.find(p=>p.id===id);
 const cl=id=>S.clients.find(c=>c.id===id)||{name:'?',email:'',phone:''};
 function toast(t){const e=$('#toast');e.textContent=t;e.style.display='block';clearTimeout(toast.t);toast.t=setTimeout(()=>e.style.display='none',3800)}
@@ -158,7 +158,7 @@ function newWork(id,pcid){
   if(p)$('#nn').style.display='block';else if(pcid)$('#nn').style.display='none'}
 function calc(){$('#du').value=Math.max(0,(+$('#tt').value||0)-(+$('#ad').value||0))}
 async function saveWork(eid){
-  const body={service:$('#sv').value,status:$('#sg').value,days:$('#dy').value,total:$('#tt').value,note:enc($('#nt').value,$('#pp').value)};
+  const body={service:$('#sv').value,status:$('#sg').value,days:$('#dy').value,total:$('#tt').value,note:enc($('#nt').value),plan:$('#pp').value};
   const cf={name:$('#cn').value,phone:$('#cp').value,email:$('#ce').value,company:$('#cb').value};
   $('#svb').disabled=true;
   if(eid){ // ---- edit ----
@@ -169,16 +169,15 @@ async function saveWork(eid){
       Object.assign(c,cf);S.projects.forEach(x=>{if(x.clientId===p.clientId){x.clientName=cf.name;x.phone=cf.phone;x.email=cf.email}})}
     const r=await run(()=>api('updateProject',{projectId:eid,patch:body}),'Kaam update ho gaya');
     if(!r){$('#svb').disabled=false;return}
-    Object.assign(p,{service:body.service,status:body.status,days:+body.days,total:+body.total,note:body.note,dues:Math.max(0,+body.total-p.paid)});
+    Object.assign(p,{plan:+body.plan,service:body.service,status:body.status,days:+body.days,total:+body.total,note:body.note,dues:Math.max(0,+body.total-p.paid)});
     saveLocal();closeM();draw();sync();return}
   // ---- naya kaam ----
-  const p=Object.assign({},body,{paid:0});const adv=+$('#ad').value||0,am=$('#am').value;let cid=$('#nc').value;
+  const p=Object.assign({},body,{paid:$('#ad').value,payMode:$('#am').value});let cid=$('#nc').value;
   if(!cid){
     if(!_nc){const cr=await run(()=>api('saveClient',{client:cf}));if(!cr){$('#svb').disabled=false;return}S.clients.push(cr.client);_nc=cr.client.id}
     cid=_nc}
   p.clientId=cid;
   const r=await run(()=>api('saveProject',{project:p}),'Kaam save ho gaya');if(!r){$('#svb').disabled=false;return}
-  if(adv>0)await run(()=>api('addPayment',{payment:{projectId:r.project.id,amount:adv,paidAt:new Date().toISOString(),mode:am,note:'Advance / shuru me jama'}}));
   await sync();closeM();
   if(confirm('"Kaam start" mail bhejna hai?'))compose({clientId:r.project.clientId,projectId:r.project.id,purpose:'started',work:p.service})}
 
@@ -220,7 +219,7 @@ async function payHist(id){
   ${pa.map((x,i)=>`<div class="card"><b>${lb(i)}</b> · ${money(x.amount)} · ${esc(x.mode||'-')}<small>${fdt(x.paidAt)}${x.note?' · '+esc(x.note):''}</small></div>`).join('')||'<p class="mut">Abhi koi payment nahi</p>'}
   <div class="bar"><button class="b o" onclick="compose({clientId:'${p.clientId}',projectId:'${id}',purpose:'payment',work:'Payment history',includeMoney:true})">Mail bhejo</button><button class="b o" onclick="closeM()">Band karo</button></div>`)}
 function nowLocal(){const d=new Date();d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,16)}
-async function saveDetail(id){const patch={status:$('#ds').value,days:$('#dd').value,total:$('#dt').value,note:enc($('#dn').value,$('#dp').value)};const r=await run(()=>api('updateProject',{projectId:id,patch}),'Save ho gaya');if(r){const p=pr(id);Object.assign(p,{status:patch.status,days:+patch.days,total:+patch.total,note:patch.note,dues:+patch.total-p.paid});saveLocal();draw();sync()}}
+async function saveDetail(id){const patch={status:$('#ds').value,days:$('#dd').value,total:$('#dt').value,note:enc($('#dn').value),plan:$('#dp').value};const r=await run(()=>api('updateProject',{projectId:id,patch}),'Save ho gaya');if(r){const p=pr(id);Object.assign(p,{plan:+patch.plan,status:patch.status,days:+patch.days,total:+patch.total,note:patch.note,dues:+patch.total-p.paid});saveLocal();draw();sync()}}
 async function delWork(id){const p=pr(id);if(!confirm(`"${p.clientName} — ${p.service}" delete karein? Uski payments aur requests bhi delete ho jayengi.`))return;
   const r=await run(()=>api('deleteProject',{projectId:id}),'Kaam delete ho gaya');if(r){S.projects=S.projects.filter(x=>x.id!==id);saveLocal();closeM();draw()}}
 async function addPay(id){
