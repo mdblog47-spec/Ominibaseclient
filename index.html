@@ -66,8 +66,8 @@ button,select{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 </head>
 <body>
 <div id="lock"><div><h1>Client Desk</h1><p class="mut">Password daalo</p><input id="lp" type="password" autocomplete="current-password" placeholder="Password"><div id="le"></div><button class="b" id="lb" style="width:100%;padding:11px">Kholo</button></div></div>
-<div id="off">Offline ho — data dekhne ke liye internet chahiye.</div>
-<header><h1>Client Desk</h1><span id="sy"></span><button class="b o" id="inst" style="display:none">App install karo</button></header>
+<div id="off">Offline ho — purana saved data dikh raha hai, naya save karne ke liye internet chahiye.</div>
+<header><h1>Client Desk</h1><span id="sy"></span><button class="b o" id="inst" style="display:none">App install karo</button><button class="b o" id="lo" onclick="logout()" style="margin-left:auto">Logout</button></header>
 <nav id="nav"></nav>
 <main id="v"></main>
 <div id="mb"><div id="m"></div></div>
@@ -94,34 +94,68 @@ const enc=t=>t;
 const pr=id=>S.projects.find(p=>p.id===id);
 const cl=id=>S.clients.find(c=>c.id===id)||{name:'?',email:'',phone:''};
 function toast(t){const e=$('#toast');e.textContent=t;e.style.display='block';clearTimeout(toast.t);toast.t=setTimeout(()=>e.style.display='none',3800)}
-async function api(action,body={}){
-  if(!navigator.onLine)throw new Error('Offline ho');
-  let j;
-  try{const r=await fetch(DEFAULT_API,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(Object.assign({password:PW,action},body))});j=await r.json()}
-  catch(e){throw new Error("Connect nahi hua. Deployment 'Anyone' access par hona chahiye.")}
-  if(!j.ok)throw new Error(j.error==='Wrong password'?'Password galat hai':j.error);return j}
+/* ---- API: slow internet me bhi chale (timeout + auto retry + double-tap guard) ---- */
+const READ=new Set(['getAll','getUpdates','getPayments','getClientHistory']);
+const NORETRY=new Set(['sendMail','generateDrafts']); // inhe dobara nahi bhejte (duplicate mail na jaye)
+const inflight=new Map(),sleep=ms=>new Promise(r=>setTimeout(r,ms));
+function api(action,body={}){
+  if(READ.has(action))return apiCall(action,body);
+  const k=action+JSON.stringify(body); // same write pehle se chal raha ho to naya request mat bhejo
+  if(inflight.has(k))return inflight.get(k);
+  const p=apiCall(action,body).finally(()=>inflight.delete(k));inflight.set(k,p);return p}
+async function apiCall(action,body){
+  if(!navigator.onLine)throw new Error('Offline ho — internet on karo');
+  const isRead=READ.has(action),tries=isRead?4:(NORETRY.has(action)?1:3),
+    tmo=action==='generateDrafts'?90000:isRead?40000:60000,
+    reqId=isRead?undefined:Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+  let last;
+  for(let i=0;i<tries;i++){
+    if(i){toast('Internet slow hai — dobara try ho raha hai ('+(i+1)+'/'+tries+')…');await sleep(1200*i)}
+    const ctl=new AbortController(),t=setTimeout(()=>ctl.abort(),tmo);
+    try{
+      const r=await fetch(DEFAULT_API,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(Object.assign({password:PW,action,reqId},body)),signal:ctl.signal});
+      const txt=await r.text();clearTimeout(t);let j;
+      try{j=JSON.parse(txt)}catch{
+        if(r.status>=500||r.status===429){last=new Error('Server busy hai, thodi der baad try karo');continue}
+        throw Object.assign(new Error("Server ka jawab galat aaya. Deployment 'Anyone' access par hona chahiye."),{fatal:true})}
+      if(!j.ok)throw Object.assign(new Error(j.error==='Wrong password'?'Password galat hai':(j.error||'Error')),{fatal:true});
+      return j}
+    catch(e){clearTimeout(t);
+      if(e.fatal)throw e;
+      if(e.name==='AbortError'){
+        last=new Error(isRead?'Internet bahut slow hai, time out ho gaya':'Internet bahut slow tha — pata nahi save hua ya nahi. Pehle list refresh karke check karo, phir dobara try karo.');
+        if(!isRead)throw last; // write timeout par auto-retry nahi (duplicate ka darr)
+        continue}
+      last=new Error('Internet slow ya band hai — connect nahi hua')}
+  }
+  throw last||new Error('Connect nahi hua')}
 async function run(fn,ok){try{const r=await fn();if(ok)toast(ok);return r}catch(e){toast(e.message);if(e.message==='Password galat hai')lockNow(true);return null}}
 /* ---- Lock ---- */
 async function sha(s){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode('cm:'+s));return[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}
-function lockNow(forget){if(NO_LOCK)return;PW='';closeM();if(forget){localStorage.removeItem('cmh')}$('#lp').value='';$('#le').textContent='';$('#lock').style.display='flex';$('#lp').focus()}
+function lockNow(forget){if(NO_LOCK)return;PW='';closeM();
+  if(forget){['cmh','cmp','cmd'].forEach(k=>localStorage.removeItem(k));S={clients:[],projects:[]};$('#v').innerHTML='';$('#nav').innerHTML=''}
+  $('#lp').value='';$('#le').textContent='';$('#lock').style.display='flex';$('#lp').focus()}
+function logout(){if(confirm('Logout karein? Dobara password dena padega.'))lockNow(true)}
 function showApp(){$('#lock').style.display='none';draw()}
 async function unlock(){
   const v=$('#lp').value;if(!v)return;$('#le').textContent='';const h=await sha(v),saved=localStorage.cmh,cache=localStorage.cmd;
   if(saved&&cache){ // fast path: cache turant dikhao, server se peeche sync
     if(h!==saved){$('#le').textContent='Password galat hai';return}
-    try{S=JSON.parse(cache)}catch{S={clients:[],projects:[]}}PW=v;showApp();sync();return}
+    try{S=JSON.parse(cache)}catch{S={clients:[],projects:[]}}PW=v;localStorage.cmp=v;showApp();sync();return}
   const b=$('#lb');b.disabled=true;b.textContent='Check ho raha hai…';PW=v;
-  try{const j=await api('getAll');S={clients:j.clients,projects:j.projects};localStorage.cmh=h;localStorage.cmd=JSON.stringify(S);showApp()}
+  try{const j=await api('getAll');S={clients:j.clients,projects:j.projects};localStorage.cmh=h;localStorage.cmp=v;localStorage.cmd=JSON.stringify(S);showApp()}
   catch(e){PW='';$('#le').textContent=e.message}
   b.disabled=false;b.textContent='Kholo'}
 $('#lb').onclick=unlock;$('#lp').onkeydown=e=>{if(e.key==='Enter')unlock()};
-document.addEventListener('visibilitychange',()=>{if(document.hidden)hid=Date.now();else if(PW&&Date.now()-hid>10*60e3)lockNow()});
 /* ---- Data ---- */
 async function sync(){
   $('#sy').textContent='Sync…';
-  try{const j=await api('getAll');S={clients:j.clients,projects:j.projects};localStorage.cmd=JSON.stringify(S);if(PW||NO_LOCK)draw()}
-  catch(e){toast(e.message);if(e.message==='Password galat hai')lockNow(true)}
-  $('#sy').textContent='';return true}
+  try{const j=await api('getAll');S={clients:j.clients,projects:j.projects};localStorage.cmd=JSON.stringify(S);$('#sy').textContent='';if(PW||NO_LOCK)draw()}
+  catch(e){
+    if(e.message==='Password galat hai'){toast(e.message);lockNow(true);$('#sy').textContent='';return true}
+    $('#sy').innerHTML='<a href="#" onclick="sync();return false" style="color:var(--warn);font-weight:600">⚠ Sync nahi hua — dobara try</a>';
+    toast(e.message+' — purana saved data dikh raha hai')}
+  return true}
 const load=sync;
 function saveLocal(){localStorage.cmd=JSON.stringify(S)}
 function modal(h){$('#m').innerHTML=h;$('#mb').style.display='flex'}
@@ -204,7 +238,7 @@ function detail(id){
   <div class="bar"><button class="b" onclick="saveDetail('${id}')">Save</button><button class="b o" onclick="payHist('${id}')">Payment history</button><button class="b r" onclick="delWork('${id}')">Kaam delete</button></div>
   <div id="dl"><p class="mut">Payments load ho rahi hain…</p></div><div class="bar"><button class="b o" onclick="closeM()">Band karo</button></div>`);
   api('getUpdates',{projectId:id}).then(b=>{const el=$('#ul');if(!el)return;const up=b.updates;
-    el.innerHTML=`<h2>Change / Update requests</h2><small class="mut">Client kuch naya ya change maange to yahin add karo — upar Save dabana zaroori nahi.</small>${up.map(u=>`<div class="card"><b>${esc(u.type)}</b> <span class="badge ${u.status==='Completed'?'g':''}">${u.status}</span><div>${esc(u.description)}</div><small>${u.days?u.days+' din':''}</small>${u.status!=='Completed'?`<button class="b" onclick="doneUp('${u.id}','${id}')">Complete karke mail bhejo</button>`:''}</div>`).join('')}
+    el.innerHTML=`<h2>Change / Update requests</h2><small class="mut">Client kuch naya ya change maange to yahin add karo — upar Save dabana zaroori nahi.</small>${up.map(u=>`<div class="card"><b>${esc(u.type)}</b> <span class="badge ${u.status==='Completed'?'g':''}">${u.status}</span><div>${esc(u.description)}</div><small>${u.days?u.days+' din':''}</small>${u.status!=='Completed'?`<button class="b" onclick="doneUp('${u.id}','${id}')">Complete karke mail bhejo</button>`:''}<button class="b r" onclick="delUp('${u.id}','${id}')">Delete</button></div>`).join('')}
     <div class="g2"><div><label>Type</label><select id="ut"><option>Change</option><option>Replace</option><option>Update</option></select></div><div><label>Days (optional)</label><input id="ud" type="number"></div></div><label>Note</label><input id="un">
     <div class="bar"><button class="b o" onclick="addUp('${id}')">Request add karo</button></div>`}).catch(e=>{const el=$('#ul');if(el)el.innerHTML='<p class="mut">'+esc(e.message)+'</p>'});
   api('getPayments',{projectId:id}).then(a=>{const el=$('#dl');if(!el)return;const pa=a.payments,pp=pr(id),n=pl(pp),left=Math.max(0,pp.total-pp.paid),sug=left?Math.ceil(left/Math.max(1,n-pa.length)):'';
@@ -231,6 +265,10 @@ async function addPay(id){
   if(p.status==='Completed'&&p.dues===0&&confirm('Dues 0 hain. Client history me bhejein?'))arch(id,true)}
 async function delPay(pid,id){if(!confirm('Payment delete karein?'))return;const r=await run(()=>api('deletePayment',{paymentId:pid}),'Delete ho gayi');if(r){await sync();detail(id)}}
 async function addUp(id){const t=$('#ut').value,n=$('#un').value;const r=await run(()=>api('addUpdate',{update:{projectId:id,type:t,description:n,days:$('#ud').value}}),'Request add ho gayi');if(!r)return;sync();compose({clientId:pr(id).clientId,projectId:id,purpose:'update_received',work:t+' request',details:n,updateId:r.update.id});gen()}
+async function delUp(uid,id){
+  if(!confirm('Ye Change / Update request delete karein? Wapas nahi aayegi.'))return;
+  const r=await run(()=>api('deleteUpdate',{updateId:uid}),'Request delete ho gayi');
+  if(r){await sync();detail(id)}}
 async function doneUp(uid,id){const r=await run(()=>api('setUpdateStatus',{updateId:uid,status:'Completed'}),'Completed mark ho gaya');if(!r)return;
   const g=await api('getUpdates',{projectId:id}),u=g.updates.find(x=>x.id===uid)||{};sync();compose({clientId:pr(id).clientId,projectId:id,purpose:'update_completed',work:(u.type||'Update')+' complete',details:u.description||'',updateId:uid})}
 
@@ -308,7 +346,7 @@ async function cHist(id){
 
 /* ---- Quick Mail / Settings ---- */
 function vMail(){$('#v').innerHTML=`<h2>Quick Mail</h2><p class="mut">Kisi bhi client ko AI ki madad se mail likho.</p><button class="b" onclick="compose({})">Mail likho</button>`}
-function vSet(){$('#v').innerHTML=`<h2>Settings</h2><div class="card"><label>Sender name (AI mail ke end me)</label><input id="sn" value="${esc(cfg().sender)}"><div class="bar"><button class="b" onclick="localStorage.cm=JSON.stringify({sender:$('#sn').value});toast('Save ho gaya')">Save</button><button class="b o" onclick="lockNow()">App lock karo</button></div><p class="mut">Password badalna ho to Apps Script ke Script Properties me APP_PASSWORD badlo.</p></div>`}
+function vSet(){$('#v').innerHTML=`<h2>Settings</h2><div class="card"><label>Sender name (AI mail ke end me)</label><input id="sn" value="${esc(cfg().sender)}"><div class="bar"><button class="b" onclick="localStorage.cm=JSON.stringify({sender:$('#sn').value});toast('Save ho gaya')">Save</button><button class="b r" onclick="logout()">Logout</button></div><p class="mut">Password badalna ho to Apps Script ke Script Properties me APP_PASSWORD badlo.</p></div>`}
 
 /* ---- PWA ---- */
 let ip;addEventListener('beforeinstallprompt',e=>{e.preventDefault();ip=e;$('#inst').style.display='inline-block'});
@@ -316,6 +354,8 @@ $('#inst').onclick=async()=>{if(ip){ip.prompt();await ip.userChoice;ip=null;$('#
 const off=()=>$('#off').style.display=navigator.onLine?'none':'block';addEventListener('online',()=>{off();if(PW||NO_LOCK)sync()});addEventListener('offline',off);off();
 if('serviceWorker'in navigator)addEventListener('load',()=>navigator.serviceWorker.register('sw.js'));
 if(NO_LOCK){PW=AUTO_PW;try{S=JSON.parse(localStorage.cmd)}catch{}if(!S||!S.clients)S={clients:[],projects:[]};showApp();sync()}
+else if(localStorage.cmp&&localStorage.cmh){ // pehle login ho chuka hai: password dobara nahi maangenge
+  PW=localStorage.cmp;try{S=JSON.parse(localStorage.cmd)}catch{}if(!S||!S.clients)S={clients:[],projects:[]};showApp();sync()}
 else{$('#lock').style.display='flex';setTimeout(()=>$('#lp').focus(),50)}
 </script>
 </body>
