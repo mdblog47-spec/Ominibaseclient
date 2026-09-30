@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Client Desk</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="theme-color" content="#0f5e57">
+<style>
+:root{--bg:#f4f6f3;--card:#fff;--ink:#16231f;--mut:#63736e;--line:#dbe3df;--ac:#0f5e57;--acs:#e1f0ed;--warn:#b45309;--warns:#fdf0dc;--bad:#b42318;--ok:#1a7f4b}
+@media(prefers-color-scheme:dark){:root{--bg:#101715;--card:#182320;--ink:#e6efec;--mut:#93a6a0;--line:#2a3a35;--ac:#4cc2b3;--acs:#1c3531;--warn:#f0b35a;--warns:#3a2c14;--bad:#ff8a7d;--ok:#5fd09a}}
+*{box-sizing:border-box}html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 "Segoe UI",system-ui,sans-serif;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+header{display:flex;align-items:center;gap:12px;padding:14px 16px 0;flex-wrap:wrap}
+h1{font-size:20px;margin:0;letter-spacing:-.3px}
+nav{display:flex;gap:4px;padding:10px 16px;overflow-x:auto}
+nav button{border:0;background:none;color:var(--mut);padding:8px 14px;border-radius:99px;font:inherit;font-weight:600;cursor:pointer;white-space:nowrap}
+nav button.on{background:var(--ac);color:var(--bg)}
+main{padding:0 16px 40px;max-width:1100px;margin:auto}
+#off{display:none;background:var(--warns);color:var(--warn);padding:8px 16px;font-weight:600}
+h2{font-size:16px;margin:22px 0 8px;display:flex;align-items:center;gap:8px}
+.cnt{background:var(--acs);color:var(--ac);border-radius:99px;padding:0 9px;font-size:13px}
+.tw{overflow-x:auto;background:var(--card);border:1px solid var(--line);border-radius:10px}
+table{border-collapse:collapse;width:100%;min-width:720px}
+th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:13px;color:var(--mut);font-weight:600}tr:last-child td{border:0}
+tbody tr{cursor:pointer}tbody tr:hover{background:var(--acs)}
+small{display:block;color:var(--mut)}
+button.b{border:1px solid var(--ac);background:var(--ac);color:var(--bg);border-radius:8px;padding:7px 12px;font:inherit;font-weight:600;cursor:pointer;margin:2px 4px 2px 0}
+button.b.o{background:none;color:var(--ac)}button.b.r{background:none;border-color:var(--bad);color:var(--bad)}
+button:disabled{opacity:.5}
+.badge{display:inline-block;background:var(--warns);color:var(--warn);border-radius:6px;padding:2px 8px;font-size:13px;font-weight:600}
+.badge.g{background:var(--acs);color:var(--ok)}
+input,select,textarea{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font:inherit}
+textarea{min-height:90px}
+label{display:block;font-size:13px;font-weight:600;color:var(--mut);margin:10px 0 3px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+#mb{position:fixed;inset:0;background:#0009;display:none;align-items:flex-start;justify-content:center;overflow:auto;padding:max(16px,env(safe-area-inset-top)) 12px;z-index:5}
+#m{background:var(--card);border-radius:14px;padding:18px;width:100%;max-width:640px;margin:auto}
+#m h3{margin:0 0 6px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px;margin:8px 0}
+.bar{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+.bar input,.bar select{width:auto;flex:1;min-width:150px}
+#search{font-size:17px;padding:13px}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+.tabs button{border:1px solid var(--line);background:none;color:var(--ink);border-radius:8px;padding:6px 10px;font:inherit;cursor:pointer}
+.tabs button.on{border-color:var(--ac);background:var(--acs);color:var(--ac)}
+#toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;display:none;z-index:9;max-width:90%}
+.mut{color:var(--mut)}.pre{white-space:pre-wrap}
+
+#lock{position:fixed;inset:0;background:var(--bg);z-index:20;display:none;align-items:center;justify-content:center;padding:20px}
+#lock>div{width:100%;max-width:340px}#lock h1{font-size:24px;margin-bottom:4px}
+#le{color:var(--bad);min-height:22px;margin:6px 0}
+#sy{color:var(--mut);font-size:13px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:10px}
+.wc{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;display:grid;gap:8px;align-content:start}
+.wc[onclick]{cursor:pointer}
+.nums{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}.nums span{font-size:12px;color:var(--mut)}.nums b{display:block;font-size:14px;color:var(--ink)}
+.nums b.du{color:var(--bad)}
+h2.s-Upcoming{border-left:4px solid var(--warn);padding-left:8px}h2.s-Running{border-left:4px solid var(--ac);padding-left:8px}h2.s-Completed{border-left:4px solid var(--ok);padding-left:8px}
+nav button{padding:8px 12px}
+</style>
+</head>
+<body>
+<div id="lock"><div><h1>Client Desk</h1><p class="mut">Password daalo</p><input id="lp" type="password" autocomplete="current-password" placeholder="Password"><div id="le"></div><button class="b" id="lb" style="width:100%;padding:11px">Kholo</button></div></div>
+<div id="off">Offline ho — data dekhne ke liye internet chahiye.</div>
+<header><h1>Client Desk</h1><span id="sy"></span><button class="b o" id="inst" style="display:none">App install karo</button></header>
+<nav id="nav"></nav>
+<main id="v"></main>
+<div id="mb"><div id="m"></div></div>
+<div id="toast"></div>
+<script>
+const DEFAULT_API='https://script.google.com/macros/s/AKfycbyYw03VeCYKDtNWiWTX_R4oz9bT5SiX3nVpXwZ6SkRouhTOFk1g-uNzZCxJ1Uld_NVTkw/exec';
+const SERVICES=['Control Management System','Attendance Management System','Custom Form','Website'];
+const MODES=['Cash','UPI','Bank','Cheque'];
+const PURPOSES=[['general','General update'],['started','Kaam start'],['update_received','Request mili'],['update_completed','Update complete'],['payment','Payment reminder'],['payment_received','Payment mil gaya'],['final_summary','Final thank-you']];
+const PAYP=['payment','payment_received','final_summary'];
+const STAGES=['Upcoming','Running','Completed'];
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const cfg=()=>{try{return JSON.parse(localStorage.cm||'{}')}catch{return{}}};
+const money=n=>'₹'+Number(n||0).toLocaleString('en-IN');
+const fdt=v=>new Date(v).toLocaleString('en-IN',{timeZone:'Asia/Kolkata',day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',hour12:true})+' IST';
+let S={clients:[],projects:[]},tab='work',q='',flt='all',C={},PW='',hid=0;
+const pr=id=>S.projects.find(p=>p.id===id);
+const cl=id=>S.clients.find(c=>c.id===id)||{name:'?',email:'',phone:''};
+function toast(t){const e=$('#toast');e.textContent=t;e.style.display='block';clearTimeout(toast.t);toast.t=setTimeout(()=>e.style.display='none',3800)}
+async function api(action,body={}){
+  if(!navigator.onLine)throw new Error('Offline ho');
+  let j;
+  try{const r=await fetch(DEFAULT_API,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(Object.assign({password:PW,action},body))});j=await r.json()}
+  catch(e){throw new Error("Connect nahi hua. Deployment 'Anyone' access par hona chahiye.")}
+  if(!j.ok)throw new Error(j.error==='Wrong password'?'Password galat hai':j.error);return j}
+async function run(fn,ok){try{const r=await fn();if(ok)toast(ok);return r}catch(e){toast(e.message);if(e.message==='Password galat hai')lockNow(true);return null}}
+/* ---- Lock ---- */
+async function sha(s){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode('cm:'+s));return[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}
+function lockNow(forget){PW='';closeM();if(forget){localStorage.removeItem('cmh')}$('#lp').value='';$('#le').textContent='';$('#lock').style.display='flex';$('#lp').focus()}
+function showApp(){$('#lock').style.display='none';draw()}
+async function unlock(){
+  const v=$('#lp').value;if(!v)return;$('#le').textContent='';const h=await sha(v),saved=localStorage.cmh,cache=localStorage.cmd;
+  if(saved&&cache){ // fast path: cache turant dikhao, server se peeche sync
+    if(h!==saved){$('#le').textContent='Password galat hai';return}
+    try{S=JSON.parse(cache)}catch{S={clients:[],projects:[]}}PW=v;showApp();sync();return}
+  const b=$('#lb');b.disabled=true;b.textContent='Check ho raha hai…';PW=v;
+  try{const j=await api('getAll');S={clients:j.clients,projects:j.projects};localStorage.cmh=h;localStorage.cmd=JSON.stringify(S);showApp()}
+  catch(e){PW='';$('#le').textContent=e.message}
+  b.disabled=false;b.textContent='Kholo'}
+$('#lb').onclick=unlock;$('#lp').onkeydown=e=>{if(e.key==='Enter')unlock()};
+document.addEventListener('visibilitychange',()=>{if(document.hidden)hid=Date.now();else if(PW&&Date.now()-hid>10*60e3)lockNow()});
+/* ---- Data ---- */
+async function sync(){
+  $('#sy').textContent='Sync…';
+  try{const j=await api('getAll');S={clients:j.clients,projects:j.projects};localStorage.cmd=JSON.stringify(S);if(PW)draw()}
+  catch(e){toast(e.message);if(e.message==='Password galat hai')lockNow(true)}
+  $('#sy').textContent='';return true}
+const load=sync;
+function saveLocal(){localStorage.cmd=JSON.stringify(S)}
+function modal(h){$('#m').innerHTML=h;$('#mb').style.display='flex'}
+function closeM(){$('#mb').style.display='none'}
+$('#mb').onclick=e=>{if(e.target.id==='mb')closeM()};
+function nav(){$('#nav').innerHTML=[['work','Client Work'],['cli','Clients'],['hist','History'],['mail','Quick Mail'],['set','Settings']].map(([k,l])=>`<button class="${tab===k?'on':''}" onclick="tab='${k}';draw()">${l}</button>`).join('')}
+function draw(){if(!PW)return;nav();({work:vWork,cli:vCli,hist:vHist,mail:vMail,set:vSet})[tab]()}
+
+/* ---- Client Work ---- */
+function acts(p){
+  if(p.status==='Upcoming')return `<button class="b" onclick="event.stopPropagation();setStage('${p.id}','Running')">Running karo</button>`;
+  if(p.status==='Running')return `<button class="b" onclick="event.stopPropagation();setStage('${p.id}','Completed')">Complete karo</button>`;
+  return p.dues>0?`<span class="badge">Payment baaki</span>`:`<button class="b" onclick="event.stopPropagation();arch('${p.id}',true)">Client history me bhejo</button>`}
+function wcard(p){return `<div class="wc" onclick="detail('${p.id}')"><div><b>${esc(p.clientName)}</b><small>${esc(p.phone)} ${esc(p.email)}</small></div>
+  <div>${esc(p.service)}${p.pending?` <span class="badge">${p.pending} request</span>`:''}</div>
+  <div class="nums"><span>Days<b>${p.days||'-'}</b></span><span>Total<b>${money(p.total)}</b></span><span>Paid<b>${money(p.paid)}</b></span><span>Dues<b class="${p.dues>0?'du':''}">${money(p.dues)}</b></span></div><div>${acts(p)}</div></div>`}
+function vWork(){
+  const live=S.projects.filter(p=>!p.archived);
+  $('#v').innerHTML=`<div class="bar"><button class="b" onclick="newWork()">+ Naya kaam</button><button class="b o" onclick="compose({})">Mail likho</button></div>`+
+  STAGES.map(st=>{const L=live.filter(p=>p.status===st);return `<h2 class="s-${st}">${st} <span class="cnt">${L.length}</span></h2><div class="grid">${L.map(wcard).join('')||'<p class="mut">Koi kaam nahi</p>'}</div>`}).join('')}
+async function setStage(id,status){const p=pr(id),old=p.status;p.status=status;saveLocal();draw();const r=await run(()=>api('updateProject',{projectId:id,patch:{status}}),status+' ho gaya');if(!r){p.status=old;draw()}else sync()}
+async function arch(id,archived){const r=await run(()=>api('setArchived',{projectId:id,archived}),archived?'History me bhej diya':'Wapas Completed me aa gaya');if(r){const p=pr(id);if(p){p.archived=archived;saveLocal()}closeM();draw();sync()}}
+function newWork(){
+  modal(`<h3>Naya kaam</h3><label>Client</label><select id="nc" onchange="$('#nn').style.display=this.value?'none':'block'"><option value="">+ Naya client</option>${S.clients.map(c=>`<option value="${c.id}">${esc(c.name)} (${esc(c.phone)})</option>`).join('')}</select>
+  <div id="nn"><div class="g2"><div><label>Naam</label><input id="cn"></div><div><label>Phone</label><input id="cp" inputmode="tel"></div></div><label>Email (zaroori)</label><input id="ce" type="email"></div>
+  <div class="g2"><div><label>Service</label><select id="sv">${SERVICES.map(s=>`<option>${s}</option>`).join('')}</select></div><div><label>Section</label><select id="sg"><option>Upcoming</option><option>Running</option></select></div>
+  <div><label>Days</label><input id="dy" type="number" min="0"></div><div><label>Total amount</label><input id="tt" type="number" min="0" oninput="calc()"></div>
+  <div><label>Advance / paid</label><input id="ad" type="number" min="0" oninput="calc()"></div><div><label>Dues</label><input id="du" readonly></div></div>
+  <label>Internal note (AI ko nahi jata)</label><textarea id="nt"></textarea>
+  <div class="bar"><button class="b" id="svb" onclick="saveWork()">Save</button><button class="b o" onclick="closeM()">Cancel</button></div>`)}
+function calc(){$('#du').value=Math.max(0,(+$('#tt').value||0)-(+$('#ad').value||0))}
+async function saveWork(){
+  const cid=$('#nc').value,p={service:$('#sv').value,status:$('#sg').value,days:$('#dy').value,total:$('#tt').value,paid:$('#ad').value,note:$('#nt').value};
+  if(cid)p.clientId=cid;else p.newClient={name:$('#cn').value,phone:$('#cp').value,email:$('#ce').value};
+  $('#svb').disabled=true;const r=await run(()=>api('saveProject',{project:p}),'Kaam save ho gaya');if(!r){$('#svb').disabled=false;return}
+  await sync();closeM();
+  if(confirm('"Kaam start" mail bhejna hai?'))compose({clientId:r.project.clientId,projectId:r.project.id,purpose:'started',work:p.service})}
+
+/* ---- Project detail (turant khulta hai, lists baad me aati hain) ---- */
+function detail(id){
+  const p=pr(id);
+  modal(`<h3>${esc(p.clientName)} — ${esc(p.service)}</h3><small>${esc(p.phone)} ${esc(p.email)}</small>
+  <div class="g2"><div><label>Stage</label><select id="ds">${STAGES.map(s=>`<option ${s===p.status?'selected':''}>${s}</option>`).join('')}</select></div><div><label>Days</label><input id="dd" type="number" value="${p.days}"></div>
+  <div><label>Total</label><input id="dt" type="number" value="${p.total}" oninput="$('#dq').value=this.value-${p.paid}"></div><div><label>Paid (payments ka sum)</label><input readonly value="${p.paid}"></div></div>
+  <label>Dues</label><input id="dq" readonly value="${p.dues}"><label>Internal note</label><textarea id="dn">${esc(p.note)}</textarea>
+  <div class="bar"><button class="b" onclick="saveDetail('${id}')">Save</button>${p.archived?`<button class="b o" onclick="arch('${id}',false)">Wapas Completed me lao</button>`:''}<button class="b o" onclick="compose({clientId:'${p.clientId}',projectId:'${id}',purpose:'payment',work:'Payment history',includeMoney:true})">Payment history mail</button><button class="b r" onclick="delWork('${id}')">Kaam delete</button></div>
+  <div id="dl"><p class="mut">Payments load ho rahi hain…</p></div><div class="bar"><button class="b o" onclick="closeM()">Band karo</button></div>`);
+  Promise.all([api('getPayments',{projectId:id}),api('getUpdates',{projectId:id})]).then(([a,b])=>{
+    const el=$('#dl');if(!el)return;const pa=a.payments,up=b.updates;
+    el.innerHTML=`<h2>Payments</h2>${pa.map(x=>`<div class="card">${money(x.amount)} · ${esc(x.mode||'-')} <small>${fdt(x.paidAt)}${x.note?' · '+esc(x.note):''}</small><button class="b r" onclick="delPay('${x.id}','${id}')">Delete</button></div>`).join('')||'<p class="mut">Abhi koi payment nahi</p>'}
+    <div class="g2"><div><label>Amount</label><input id="pa" type="number" min="1"></div><div><label>Date & time</label><input id="pd" type="datetime-local" value="${nowLocal()}"></div><div><label>Mode</label><select id="pm">${MODES.map(m=>`<option>${m}</option>`).join('')}</select></div><div><label>Note</label><input id="pn"></div></div>
+    <div class="bar"><button class="b" onclick="addPay('${id}')">Payment add karo</button></div>
+    <h2>Change / Update requests</h2>${up.map(u=>`<div class="card"><b>${esc(u.type)}</b> <span class="badge ${u.status==='Completed'?'g':''}">${u.status}</span><div>${esc(u.description)}</div><small>${u.days?u.days+' din':''}</small>${u.status!=='Completed'?`<button class="b" onclick="doneUp('${u.id}','${id}')">Complete karke mail bhejo</button>`:''}</div>`).join('')}
+    <div class="g2"><div><label>Type</label><select id="ut"><option>Change</option><option>Replace</option><option>Update</option></select></div><div><label>Days (optional)</label><input id="ud" type="number"></div></div><label>Note</label><input id="un">
+    <div class="bar"><button class="b o" onclick="addUp('${id}')">Request add karo</button></div>`}).catch(e=>{const el=$('#dl');if(el)el.innerHTML='<p class="mut">'+esc(e.message)+'</p>'})}
+function nowLocal(){const d=new Date();d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,16)}
+async function saveDetail(id){const patch={status:$('#ds').value,days:$('#dd').value,total:$('#dt').value,note:$('#dn').value};const r=await run(()=>api('updateProject',{projectId:id,patch}),'Save ho gaya');if(r){const p=pr(id);Object.assign(p,{status:patch.status,days:+patch.days,total:+patch.total,note:patch.note,dues:+patch.total-p.paid});saveLocal();draw();sync()}}
+async function delWork(id){const p=pr(id);if(!confirm(`"${p.clientName} — ${p.service}" delete karein? Uski payments aur requests bhi delete ho jayengi.`))return;
+  const r=await run(()=>api('deleteProject',{projectId:id}),'Kaam delete ho gaya');if(r){S.projects=S.projects.filter(x=>x.id!==id);saveLocal();closeM();draw()}}
+async function addPay(id){
+  const r=await run(()=>api('addPayment',{payment:{projectId:id,amount:$('#pa').value,paidAt:new Date($('#pd').value).toISOString(),mode:$('#pm').value,note:$('#pn').value}}),'Payment add ho gayi');
+  if(!r)return;const p=pr(id);p.paid=r.result.paid;p.dues=r.result.dues;saveLocal();draw();detail(id);sync();
+  if(confirm('"Payment mil gayi" mail bhejna hai?'))return compose({clientId:p.clientId,projectId:id,purpose:'payment_received',work:'Payment received',includeMoney:true});
+  if(p.status==='Completed'&&p.dues===0&&confirm('Dues 0 hain. Client history me bhejein?'))arch(id,true)}
+async function delPay(pid,id){if(!confirm('Payment delete karein?'))return;const r=await run(()=>api('deletePayment',{paymentId:pid}),'Delete ho gayi');if(r){await sync();detail(id)}}
+async function addUp(id){const t=$('#ut').value,n=$('#un').value;const r=await run(()=>api('addUpdate',{update:{projectId:id,type:t,description:n,days:$('#ud').value}}),'Request add ho gayi');if(!r)return;sync();detail(id);
+  if(confirm('"Request mili" mail bhejna hai?'))compose({clientId:pr(id).clientId,projectId:id,purpose:'update_received',work:t+' request',details:n,updateId:r.update.id})}
+async function doneUp(uid,id){const r=await run(()=>api('setUpdateStatus',{updateId:uid,status:'Completed'}),'Completed mark ho gaya');if(!r)return;
+  const g=await api('getUpdates',{projectId:id}),u=g.updates.find(x=>x.id===uid)||{};sync();compose({clientId:pr(id).clientId,projectId:id,purpose:'update_completed',work:(u.type||'Update')+' complete',details:u.description||'',updateId:uid})}
+
+/* ---- Clients (add / edit / delete) ---- */
+function vCli(){
+  $('#v').innerHTML=`<div class="bar"><button class="b" onclick="cliForm()">+ Naya client</button></div><div class="grid">${S.clients.map(c=>{const n=S.projects.filter(p=>p.clientId===c.id).length;
+  return `<div class="wc"><div><b>${esc(c.name)}</b><small>${esc(c.phone)}</small><small>${esc(c.email)}${c.company?' · '+esc(c.company):''}</small></div><small>${n} kaam</small><div><button class="b o" onclick="cliForm('${c.id}')">Edit</button><button class="b r" onclick="cliDel('${c.id}')">Delete</button></div></div>`}).join('')||'<p class="mut">Abhi koi client nahi</p>'}</div>`}
+function cliForm(id){const c=id?cl(id):{};
+  modal(`<h3>${id?'Client edit karo':'Naya client'}</h3><label>Naam</label><input id="fn" value="${esc(c.name)}"><div class="g2"><div><label>Phone</label><input id="fp" inputmode="tel" value="${esc(c.phone)}"></div><div><label>Company (optional)</label><input id="fc" value="${esc(c.company)}"></div></div><label>Email</label><input id="fe" type="email" value="${esc(c.email)}">
+  <div class="bar"><button class="b" id="fb" onclick="cliSave('${id||''}')">Save</button><button class="b o" onclick="closeM()">Cancel</button></div>`)}
+async function cliSave(id){
+  const c={name:$('#fn').value,phone:$('#fp').value,email:$('#fe').value,company:$('#fc').value};$('#fb').disabled=true;
+  const r=await run(()=>id?api('updateClient',{client:Object.assign({id},c)}):api('saveClient',{client:c}),'Client save ho gaya');
+  if(!r){$('#fb').disabled=false;return}
+  if(id){Object.assign(cl(id),c);S.projects.forEach(p=>{if(p.clientId===id){p.clientName=c.name;p.phone=c.phone;p.email=c.email}})}else S.clients.push(r.client);
+  saveLocal();closeM();draw();sync()}
+async function cliDel(id){const c=cl(id),n=S.projects.filter(p=>p.clientId===id).length;
+  if(!confirm(`"${c.name}" ko delete karein?`+(n?`\n\nIske ${n} kaam, unki payments aur requests bhi delete ho jayengi. Wapas nahi aayega.`:'')))return;
+  const r=await run(()=>api('deleteClient',{clientId:id}),'Client delete ho gaya');
+  if(r){S.clients=S.clients.filter(x=>x.id!==id);S.projects=S.projects.filter(p=>p.clientId!==id);saveLocal();draw()}}
+
+/* ---- Mail composer ---- */
+function compose(o){C=Object.assign({clientId:'',projectId:'',purpose:'general',work:'',details:'',lang:'Hinglish',drafts:[],sel:0,updateId:''},o);if(o.includeMoney===undefined)C.includeMoney=PAYP.includes(C.purpose);cView()}
+function cView(){
+  const ps=S.projects.filter(p=>p.clientId===C.clientId);
+  modal(`<h3>AI mail composer</h3><label>Client</label><select id="cc" onchange="cSync();C.projectId='';cView()"><option value="">Chuno…</option>${S.clients.map(c=>`<option value="${c.id}" ${c.id===C.clientId?'selected':''}>${esc(c.name)}</option>`).join('')}</select>
+  <label>Kaam (payment wali mail ke liye zaroori)</label><select id="cp2"><option value="">— koi nahi —</option>${ps.map(p=>`<option value="${p.id}" ${p.id===C.projectId?'selected':''}>${esc(p.service)} (${p.status})</option>`).join('')}</select>
+  <div class="g2"><div><label>Purpose</label><select id="cu" onchange="cSync();C.includeMoney=PAYP.includes(C.purpose);cView()">${PURPOSES.map(([k,l])=>`<option value="${k}" ${k===C.purpose?'selected':''}>${l}</option>`).join('')}</select></div><div><label>Language</label><select id="cl">${['English','Hinglish','Hindi'].map(l=>`<option ${l===C.lang?'selected':''}>${l}</option>`).join('')}</select></div></div>
+  <label>Title / kaam</label><input id="ct" value="${esc(C.work)}"><label>Description</label><textarea id="cd">${esc(C.details)}</textarea>
+  <label><input type="checkbox" id="cy" style="width:auto" ${C.includeMoney?'checked':''}> Payment history + total/paid/dues shamil karo</label>
+  <div class="bar"><button class="b" id="gb" onclick="gen()">Drafts banao</button><button class="b o" onclick="closeM()">Band karo</button></div>
+  ${C.drafts.length?`<div class="tabs">${C.drafts.map((d,i)=>`<button class="${i===C.sel?'on':''}" onclick="pick(${i})">${esc(d.style||'Draft '+(i+1))}</button>`).join('')}</div>
+  <label>Subject</label><input id="es" value="${esc(C.drafts[C.sel].subject)}"><label>Body</label><textarea id="eb" style="min-height:220px">${esc(C.drafts[C.sel].body)}</textarea>
+  <div class="bar"><button class="b" onclick="review()">Review &amp; send</button></div>`:''}`)}
+function cSync(){C.clientId=$('#cc').value;C.projectId=$('#cp2')?.value||'';C.purpose=$('#cu').value;C.lang=$('#cl').value;C.work=$('#ct').value;C.details=$('#cd').value;C.includeMoney=$('#cy').checked}
+function keep(){if($('#es')){C.drafts[C.sel].subject=$('#es').value;C.drafts[C.sel].body=$('#eb').value}}
+function pick(i){keep();C.sel=i;cView()}
+async function gen(){cSync();if(!C.clientId)return toast('Pehle client chuno');if(!C.work.trim())return toast('Title likho');
+  if(C.includeMoney&&!C.projectId)return toast('Payment block ke liye kaam chuno');
+  $('#gb').disabled=true;$('#gb').textContent='AI likh raha hai…';
+  const r=await run(()=>api('generateDrafts',{clientId:C.clientId,projectId:C.projectId,purpose:C.purpose,work:C.work,details:C.details,language:C.lang,includeMoney:C.includeMoney,count:4,senderName:cfg().sender||''}));
+  if(r){C.drafts=r.drafts;C.sel=0}cView()}
+function review(){keep();const c=cl(C.clientId),d=C.drafts[C.sel];
+  modal(`<h3>Review &amp; send</h3><p><b>To:</b> ${esc(c.email)}</p><p><b>Subject:</b> ${esc(d.subject)}</p><div class="card pre">${esc(d.body)}</div>
+  <div class="bar"><button class="b" id="sb" onclick="doSend()">Haan, bhejo</button><button class="b o" onclick="cView()">Wapas edit karo</button></div>`)}
+async function doSend(){const d=C.drafts[C.sel];$('#sb').disabled=true;
+  const r=await run(()=>api('sendMail',{clientId:C.clientId,projectId:C.projectId,purpose:C.purpose,work:C.work,subject:d.subject,body:d.body,updateId:C.updateId}),'Mail bhej di');
+  if(r){closeM()}else review()}
+
+/* ---- History ---- */
+function vHist(){$('#v').innerHTML=`<div class="bar"><input id="search" placeholder="Naam, phone, email ya service search karo" value="${esc(q)}" oninput="q=this.value;hList()"></div>
+  <div class="tabs">${[['all','Sab'],['clear','Payment clear'],['dues','Dues baaki']].map(([k,l])=>`<button class="${flt===k?'on':''}" onclick="flt='${k}';vHist()">${l}</button>`).join('')}</div><div id="hl"></div>`;hList()}
+function hList(){
+  const s=q.toLowerCase(),g={};
+  S.projects.forEach(p=>{(g[p.clientId]=g[p.clientId]||[]).push(p)});
+  const L=Object.keys(g).filter(id=>{const a=g[id];if(!a.some(p=>p.archived))return false;
+    const hit=!s||a.map(p=>[p.clientName,p.phone,p.email,p.service].join(' ')).join(' ').toLowerCase().includes(s);
+    const dues=a.some(p=>p.dues>0);return hit&&(flt==='all'||(flt==='clear'&&!dues)||(flt==='dues'&&dues))});
+  $('#hl').innerHTML=L.map(id=>{const a=g[id],p=a[0];return `<div class="card" style="cursor:pointer" onclick="cHist('${id}')"><b>${esc(p.clientName)}</b><small>${esc(p.phone)} ${esc(p.email)} · ${a.filter(x=>x.archived).length} kaam history me</small></div>`}).join('')||'<p class="mut">Koi client nahi mila. Kaam tab history me aata hai jab Completed ho aur dues 0 ho.</p>'}
+async function cHist(id){
+  modal('<p class="mut">Load ho raha hai…</p>');
+  const r=await run(()=>api('getClientHistory',{clientId:id}));if(!r)return closeM();
+  const h=r.history,c=h.client;
+  modal(`<h3>${esc(c.name)}</h3><small>${esc(c.phone)} ${esc(c.email)}</small>`+
+  h.projects.map(p=>`<div class="card"><b>${esc(p.service)}</b> — ${money(p.total)} · ${p.status}${p.archived?'':' <span class="badge">Abhi history me nahi</span>'}<small>Paid ${money(p.paid)} · Dues ${money(p.dues)}</small>
+  ${h.payments.filter(x=>x.projectId===p.id).map(x=>`<div>${fdt(x.paidAt)} · ${money(x.amount)} · ${esc(x.mode||'-')}</div>`).join('')}
+  <button class="b o" onclick="compose({clientId:'${id}',projectId:'${p.id}',purpose:'payment',work:'Payment history',includeMoney:true})">Payment history mail</button>${p.archived?`<button class="b o" onclick="arch('${p.id}',false)">Wapas Completed me lao</button>`:''}</div>`).join('')+
+  `<h2>Bheji gayi mails</h2>`+(h.log.map(m=>`<div class="card"><b>${esc(m.subject)}</b><small>${fdt(m.sentAt)}</small><details><summary>Dekho</summary><div class="pre">${esc(m.body)}</div></details></div>`).join('')||'<p class="mut">Koi mail nahi</p>')+
+  `<div class="bar"><button class="b o" onclick="closeM()">Band karo</button></div>`)}
+
+/* ---- Quick Mail / Settings ---- */
+function vMail(){$('#v').innerHTML=`<h2>Quick Mail</h2><p class="mut">Kisi bhi client ko AI ki madad se mail likho.</p><button class="b" onclick="compose({})">Mail likho</button>`}
+function vSet(){$('#v').innerHTML=`<h2>Settings</h2><div class="card"><label>Sender name (AI mail ke end me)</label><input id="sn" value="${esc(cfg().sender)}"><div class="bar"><button class="b" onclick="localStorage.cm=JSON.stringify({sender:$('#sn').value});toast('Save ho gaya')">Save</button><button class="b o" onclick="lockNow()">App lock karo</button></div><p class="mut">Password badalna ho to Apps Script ke Script Properties me APP_PASSWORD badlo.</p></div>`}
+
+/* ---- PWA ---- */
+let ip;addEventListener('beforeinstallprompt',e=>{e.preventDefault();ip=e;$('#inst').style.display='inline-block'});
+$('#inst').onclick=async()=>{if(ip){ip.prompt();await ip.userChoice;ip=null;$('#inst').style.display='none'}};
+const off=()=>$('#off').style.display=navigator.onLine?'none':'block';addEventListener('online',()=>{off();if(PW)sync()});addEventListener('offline',off);off();
+if('serviceWorker'in navigator)addEventListener('load',()=>navigator.serviceWorker.register('sw.js'));
+$('#lock').style.display='flex';setTimeout(()=>$('#lp').focus(),50);
+</script>
+</body>
+</html>
