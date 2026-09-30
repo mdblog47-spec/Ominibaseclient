@@ -60,6 +60,8 @@ label{display:block;font-size:13px;font-weight:600;color:var(--mut);margin:10px 
 .nums b.du{color:var(--bad)}
 h2.s-Upcoming{border-left:4px solid var(--warn);padding-left:8px}h2.s-Running{border-left:4px solid var(--ac);padding-left:8px}h2.s-Completed{border-left:4px solid var(--ok);padding-left:8px}
 nav button{padding:8px 12px}
+.nsel{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+button,select{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 </style>
 </head>
 <body>
@@ -133,9 +135,9 @@ function acts(p){
   if(p.status==='Upcoming')return `<button class="b" onclick="event.stopPropagation();setStage('${p.id}','Running')">Running karo</button>`;
   if(p.status==='Running')return `<button class="b" onclick="event.stopPropagation();setStage('${p.id}','Completed')">Complete karo</button><button class="b o" onclick="event.stopPropagation();newWork('${p.id}')">Edit</button>`;
   return p.dues>0?`<span class="badge">Payment baaki</span>`:`<button class="b" onclick="event.stopPropagation();arch('${p.id}',true)">Client history me bhejo</button>`}
-function wcard(p){return `<div class="wc" onclick="cpage('${p.clientId}')"><div><b>${esc(p.clientName)}</b><small>${esc(p.phone)} ${esc(p.email)}</small>${cl(p.clientId).company?`<small>${esc(cl(p.clientId).company)}</small>`:''}</div>
+function wcard(p){return `<div class="wc nsel"><div><b>${esc(p.clientName)}</b><small>${esc(p.phone)} ${esc(p.email)}</small>${cl(p.clientId).company?`<small>${esc(cl(p.clientId).company)}</small>`:''}</div>
   <div>${esc(p.service)}${p.pending?` <span class="badge">${p.pending} request</span>`:''}</div>
-  <div class="nums"><span>Days<b>${p.days||'-'}</b></span><span>Total<b>${money(p.total)}</b></span><span>Paid<b>${money(p.paid)}</b></span><span>Dues<b class="${p.dues>0?'du':''}">${money(p.dues)}</b></span></div><div>${acts(p)}</div></div>`}
+  <div class="nums"><span>Days<b>${p.days||'-'}</b></span><span>Total<b>${money(p.total)}</b></span><span>Paid<b>${money(p.paid)}</b></span><span>Dues<b class="${p.dues>0?'du':''}">${money(p.dues)}</b></span></div><div>${acts(p)}<button class="b o" onclick="cpage('${p.clientId}')">Details</button></div></div>`}
 function vWork(){
   const live=S.projects.filter(p=>!p.archived);
   $('#v').innerHTML=`<div class="bar"><button class="b" onclick="newWork()">+ Naya kaam</button><button class="b o" onclick="compose({})">Mail likho</button></div>`+
