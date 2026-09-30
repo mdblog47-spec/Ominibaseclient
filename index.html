@@ -86,6 +86,9 @@ const cfg=()=>{try{return JSON.parse(localStorage.cm||'{}')}catch{return{}}};
 const money=n=>'₹'+Number(n||0).toLocaleString('en-IN');
 const fdt=v=>new Date(v).toLocaleString('en-IN',{timeZone:'Asia/Kolkata',day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',hour12:true})+' IST';
 let S={clients:[],projects:[]},tab='work',q='',flt='all',C={},PW='',hid=0;
+const pl=p=>{const m=/^\[plan:(\d)\]/.exec(p.note||'');return m?+m[1]:1};
+const nt=p=>String(p.note||'').replace(/^\[plan:\d\]\s?/,'');
+const enc=(t,n)=>(+n>1?`[plan:${n}] `:'')+t;
 const pr=id=>S.projects.find(p=>p.id===id);
 const cl=id=>S.clients.find(c=>c.id===id)||{name:'?',email:'',phone:''};
 function toast(t){const e=$('#toast');e.textContent=t;e.style.display='block';clearTimeout(toast.t);toast.t=setTimeout(()=>e.style.display='none',3800)}
@@ -130,7 +133,7 @@ function acts(p){
   if(p.status==='Upcoming')return `<button class="b" onclick="event.stopPropagation();setStage('${p.id}','Running')">Running karo</button>`;
   if(p.status==='Running')return `<button class="b" onclick="event.stopPropagation();setStage('${p.id}','Completed')">Complete karo</button><button class="b o" onclick="event.stopPropagation();newWork('${p.id}')">Edit</button>`;
   return p.dues>0?`<span class="badge">Payment baaki</span>`:`<button class="b" onclick="event.stopPropagation();arch('${p.id}',true)">Client history me bhejo</button>`}
-function wcard(p){return `<div class="wc" onclick="detail('${p.id}')"><div><b>${esc(p.clientName)}</b><small>${esc(p.phone)} ${esc(p.email)}</small>${cl(p.clientId).company?`<small>${esc(cl(p.clientId).company)}</small>`:''}</div>
+function wcard(p){return `<div class="wc" onclick="cpage('${p.clientId}')"><div><b>${esc(p.clientName)}</b><small>${esc(p.phone)} ${esc(p.email)}</small>${cl(p.clientId).company?`<small>${esc(cl(p.clientId).company)}</small>`:''}</div>
   <div>${esc(p.service)}${p.pending?` <span class="badge">${p.pending} request</span>`:''}</div>
   <div class="nums"><span>Days<b>${p.days||'-'}</b></span><span>Total<b>${money(p.total)}</b></span><span>Paid<b>${money(p.paid)}</b></span><span>Dues<b class="${p.dues>0?'du':''}">${money(p.dues)}</b></span></div><div>${acts(p)}</div></div>`}
 function vWork(){
@@ -140,21 +143,22 @@ function vWork(){
 async function setStage(id,status){const p=pr(id),old=p.status;p.status=status;saveLocal();draw();const r=await run(()=>api('updateProject',{projectId:id,patch:{status}}),status+' ho gaya');if(!r){p.status=old;draw()}else sync()}
 async function arch(id,archived){const r=await run(()=>api('setArchived',{projectId:id,archived}),archived?'History me bhej diya':'Wapas Completed me aa gaya');if(r){const p=pr(id);if(p){p.archived=archived;saveLocal()}closeM();draw();sync()}}
 let _nc='';
-function newWork(id){
+function newWork(id,pcid){
   _nc='';const p=id?pr(id):null,c=p?cl(p.clientId):{};
   const stg=p?STAGES:['Upcoming','Running'];
-  modal(`<h3>${p?'Kaam edit karo':'Naya kaam'}</h3>${p?'':`<label>Client</label><select id="nc" onchange="$('#nn').style.display=this.value?'none':'block'"><option value="">+ Naya client</option>${S.clients.map(c=>`<option value="${c.id}">${esc(c.name)} (${esc(c.phone)})</option>`).join('')}</select>`}
+  modal(`<h3>${p?'Kaam edit karo':'Naya kaam'}</h3>${p?'':`<label>Client</label><select id="nc" onchange="$('#nn').style.display=this.value?'none':'block'"><option value="">+ Naya client</option>${S.clients.map(c=>`<option value="${c.id}" ${c.id===pcid?'selected':''}>${esc(c.name)} (${esc(c.phone)})</option>`).join('')}</select>`}
   <div id="nn"><div class="g2"><div><label>Naam</label><input id="cn" value="${esc(p?p.clientName:'')}"></div><div><label>Phone</label><input id="cp" inputmode="tel" value="${esc(p?p.phone:'')}"></div></div><label>Email (zaroori)</label><input id="ce" type="email" value="${esc(p?p.email:'')}"><label>Business name</label><input id="cb" value="${esc(c.company)}"></div>
   <div class="g2"><div><label>Service</label><select id="sv">${SERVICES.map(s=>`<option ${p&&s===p.service?'selected':''}>${s}</option>`).join('')}</select></div><div><label>Section</label><select id="sg">${stg.map(s=>`<option ${p&&s===p.status?'selected':''}>${s}</option>`).join('')}</select></div>
   <div><label>Days</label><input id="dy" type="number" min="0" value="${p?p.days:''}"></div><div><label>Total amount</label><input id="tt" type="number" min="0" value="${p?p.total:''}" oninput="calc()"></div>
   <div><label>Advance / paid</label><input id="ad" type="number" min="0" value="${p?p.paid:''}" ${p?'readonly':''} oninput="calc()"></div><div><label>Dues</label><input id="du" readonly value="${p?p.dues:''}"></div></div>
   ${p?'<small class="mut">Paid payments ka sum hai — badalne ke liye kaam ke andar Payment add/delete karo. Naam/Phone/Email/Business is client ke sab kaam me badlega.</small>':''}
-  <label>Internal note (AI ko nahi jata)</label><textarea id="nt">${esc(p?p.note:'')}</textarea>
+  <label>Payment kaise hoga</label><select id="pp"><option value="1" ${p&&pl(p)>1?'':'selected'}>Ek baar (one time)</option><option value="3" ${p&&pl(p)>1?'selected':''}>3 installment</option></select>
+  <label>Internal note (AI ko nahi jata)</label><textarea id="nt">${esc(p?nt(p):'')}</textarea>
   <div class="bar"><button class="b" id="svb" onclick="saveWork('${id||''}')">Save</button><button class="b o" onclick="closeM()">Cancel</button></div>`);
-  if(p)$('#nn').style.display='block'}
+  if(p)$('#nn').style.display='block';else if(pcid)$('#nn').style.display='none'}
 function calc(){$('#du').value=Math.max(0,(+$('#tt').value||0)-(+$('#ad').value||0))}
 async function saveWork(eid){
-  const body={service:$('#sv').value,status:$('#sg').value,days:$('#dy').value,total:$('#tt').value,note:$('#nt').value};
+  const body={service:$('#sv').value,status:$('#sg').value,days:$('#dy').value,total:$('#tt').value,note:enc($('#nt').value,$('#pp').value)};
   const cf={name:$('#cn').value,phone:$('#cp').value,email:$('#ce').value,company:$('#cb').value};
   $('#svb').disabled=true;
   if(eid){ // ---- edit ----
@@ -177,25 +181,37 @@ async function saveWork(eid){
   await sync();closeM();
   if(confirm('"Kaam start" mail bhejna hai?'))compose({clientId:r.project.clientId,projectId:r.project.id,purpose:'started',work:p.service})}
 
+/* ---- Client page: ek client ke saare kaam ---- */
+function cpage(cid){
+  const c=cl(cid),L=S.projects.filter(p=>p.clientId===cid),t=L.reduce((a,p)=>a+(+p.total||0),0),pd=L.reduce((a,p)=>a+(+p.paid||0),0);
+  modal(`<h3>${esc(c.name)}</h3><small>${c.company?esc(c.company)+' · ':''}${esc(c.phone)} · ${esc(c.email)}</small>
+  <div class="nums"><span>Kaam<b>${L.length}</b></span><span>Total<b>${money(t)}</b></span><span>Mila<b>${money(pd)}</b></span><span>Baaki<b class="${t-pd>0?'du':''}">${money(t-pd)}</b></span></div>
+  <div class="bar"><button class="b" onclick="newWork('','${cid}')">+ Naya kaam add karo</button><button class="b o" onclick="cliForm('${cid}')">Client details edit</button></div>
+  <h2>Services</h2>${L.map(p=>`<div class="card" style="cursor:pointer" onclick="detail('${p.id}')"><b>${esc(p.service)}</b> <span class="badge ${p.status==='Completed'?'g':''}">${p.status}</span><small>${pl(p)>1?'3 installment':'Ek baar payment'} · Days ${p.days||'-'} · Total ${money(p.total)} · Mila ${money(p.paid)} · Baaki ${money(p.dues)}</small></div>`).join('')||'<p class="mut">Abhi koi kaam nahi</p>'}
+  <div class="bar"><button class="b o" onclick="closeM()">Band karo</button></div>`)}
+
 /* ---- Project detail (turant khulta hai, lists baad me aati hain) ---- */
 function detail(id){
-  const p=pr(id);
-  modal(`<h3>${esc(p.clientName)} — ${esc(p.service)}</h3><small>${esc(p.phone)} ${esc(p.email)}</small>
+  const p=pr(id),n=pl(p);
+  modal(`<button class="b o" onclick="cpage('${p.clientId}')">← ${esc(p.clientName)} ke saare kaam</button><h3>${esc(p.service)}</h3>
   <div class="g2"><div><label>Stage</label><select id="ds">${STAGES.map(s=>`<option ${s===p.status?'selected':''}>${s}</option>`).join('')}</select></div><div><label>Days</label><input id="dd" type="number" value="${p.days}"></div>
-  <div><label>Total</label><input id="dt" type="number" value="${p.total}" oninput="$('#dq').value=this.value-${p.paid}"></div><div><label>Paid (payments ka sum)</label><input readonly value="${p.paid}"></div></div>
-  <label>Dues</label><input id="dq" readonly value="${p.dues}"><label>Internal note</label><textarea id="dn">${esc(p.note)}</textarea>
-  <div class="bar"><button class="b" onclick="saveDetail('${id}')">Save</button>${p.archived?`<button class="b o" onclick="arch('${id}',false)">Wapas Completed me lao</button>`:''}<button class="b o" onclick="compose({clientId:'${p.clientId}',projectId:'${id}',purpose:'payment',work:'Payment history',includeMoney:true})">Payment history mail</button><button class="b r" onclick="delWork('${id}')">Kaam delete</button></div>
+  <div><label>Total amount</label><input id="dt" type="number" value="${p.total}"></div><div><label>Payment kaise hoga</label><select id="dp"><option value="1" ${n>1?'':'selected'}>Ek baar (one time)</option><option value="3" ${n>1?'selected':''}>3 installment</option></select></div></div>
+  <div class="nums"><span>Total<b>${money(p.total)}</b></span><span>Mila<b>${money(p.paid)}</b></span><span>Baaki<b class="${p.dues>0?'du':''}">${money(p.dues)}</b></span></div>
+  <label>Internal note</label><textarea id="dn">${esc(nt(p))}</textarea>
+  <div class="bar"><button class="b" onclick="saveDetail('${id}')">Save</button><button class="b o" onclick="compose({clientId:'${p.clientId}',projectId:'${id}',purpose:'payment',work:'Payment history',includeMoney:true})">Payment history mail</button><button class="b r" onclick="delWork('${id}')">Kaam delete</button></div>
   <div id="dl"><p class="mut">Payments load ho rahi hain…</p></div><div class="bar"><button class="b o" onclick="closeM()">Band karo</button></div>`);
   Promise.all([api('getPayments',{projectId:id}),api('getUpdates',{projectId:id})]).then(([a,b])=>{
-    const el=$('#dl');if(!el)return;const pa=a.payments,up=b.updates;
-    el.innerHTML=`<h2>Payments</h2>${pa.map(x=>`<div class="card">${money(x.amount)} · ${esc(x.mode||'-')} <small>${fdt(x.paidAt)}${x.note?' · '+esc(x.note):''}</small><button class="b r" onclick="delPay('${x.id}','${id}')">Delete</button></div>`).join('')||'<p class="mut">Abhi koi payment nahi</p>'}
-    <div class="g2"><div><label>Amount</label><input id="pa" type="number" min="1"></div><div><label>Date & time</label><input id="pd" type="datetime-local" value="${nowLocal()}"></div><div><label>Mode</label><select id="pm">${MODES.map(m=>`<option>${m}</option>`).join('')}</select></div><div><label>Note</label><input id="pn"></div></div>
+    const el=$('#dl');if(!el)return;const pa=a.payments,up=b.updates,pp=pr(id),n=pl(pp),left=Math.max(0,pp.total-pp.paid),sug=left?Math.ceil(left/Math.max(1,n-pa.length)):'';
+    const lb=i=>n>1?`Installment ${i+1}/${n}`:'Payment';
+    el.innerHTML=`<h2>Payments (kab kitna mila)</h2>${pa.map((x,i)=>`<div class="card"><b>${lb(i)}</b> · ${money(x.amount)} · ${esc(x.mode||'-')} <small>${fdt(x.paidAt)}${x.note?' · '+esc(x.note):''}</small><button class="b r" onclick="delPay('${x.id}','${id}')">Delete</button></div>`).join('')||'<p class="mut">Abhi koi payment nahi</p>'}
+    ${left?Array.from({length:Math.max(0,n-pa.length)},(_,k)=>`<div class="card mut">${lb(pa.length+k)} · baaki · approx ${money(sug)}</div>`).join(''):'<p class="mut">Poora payment mil gaya ✔</p>'}
+    <div class="g2"><div><label>Amount</label><input id="pa" type="number" min="1" value="${sug}"></div><div><label>Date & time</label><input id="pd" type="datetime-local" value="${nowLocal()}"></div><div><label>Mode</label><select id="pm">${MODES.map(m=>`<option>${m}</option>`).join('')}</select></div><div><label>Note</label><input id="pn"></div></div>
     <div class="bar"><button class="b" onclick="addPay('${id}')">Payment add karo</button></div>
     <h2>Change / Update requests</h2>${up.map(u=>`<div class="card"><b>${esc(u.type)}</b> <span class="badge ${u.status==='Completed'?'g':''}">${u.status}</span><div>${esc(u.description)}</div><small>${u.days?u.days+' din':''}</small>${u.status!=='Completed'?`<button class="b" onclick="doneUp('${u.id}','${id}')">Complete karke mail bhejo</button>`:''}</div>`).join('')}
     <div class="g2"><div><label>Type</label><select id="ut"><option>Change</option><option>Replace</option><option>Update</option></select></div><div><label>Days (optional)</label><input id="ud" type="number"></div></div><label>Note</label><input id="un">
     <div class="bar"><button class="b o" onclick="addUp('${id}')">Request add karo</button></div>`}).catch(e=>{const el=$('#dl');if(el)el.innerHTML='<p class="mut">'+esc(e.message)+'</p>'})}
 function nowLocal(){const d=new Date();d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,16)}
-async function saveDetail(id){const patch={status:$('#ds').value,days:$('#dd').value,total:$('#dt').value,note:$('#dn').value};const r=await run(()=>api('updateProject',{projectId:id,patch}),'Save ho gaya');if(r){const p=pr(id);Object.assign(p,{status:patch.status,days:+patch.days,total:+patch.total,note:patch.note,dues:+patch.total-p.paid});saveLocal();draw();sync()}}
+async function saveDetail(id){const patch={status:$('#ds').value,days:$('#dd').value,total:$('#dt').value,note:enc($('#dn').value,$('#dp').value)};const r=await run(()=>api('updateProject',{projectId:id,patch}),'Save ho gaya');if(r){const p=pr(id);Object.assign(p,{status:patch.status,days:+patch.days,total:+patch.total,note:patch.note,dues:+patch.total-p.paid});saveLocal();draw();sync()}}
 async function delWork(id){const p=pr(id);if(!confirm(`"${p.clientName} — ${p.service}" delete karein? Uski payments aur requests bhi delete ho jayengi.`))return;
   const r=await run(()=>api('deleteProject',{projectId:id}),'Kaam delete ho gaya');if(r){S.projects=S.projects.filter(x=>x.id!==id);saveLocal();closeM();draw()}}
 async function addPay(id){
@@ -274,7 +290,7 @@ async function cHist(id){
   ${h.payments.filter(x=>x.projectId===p.id).map(x=>`<div>${fdt(x.paidAt)} · ${money(x.amount)} · ${esc(x.mode||'-')}</div>`).join('')}
   <button class="b o" onclick="compose({clientId:'${id}',projectId:'${p.id}',purpose:'payment',work:'Payment history',includeMoney:true})">Payment history mail</button>${p.archived?`<button class="b o" onclick="arch('${p.id}',false)">Wapas Completed me lao</button>`:''}</div>`).join('')+
   `<h2>Bheji gayi mails</h2>`+(h.log.map(m=>`<div class="card"><b>${esc(m.subject)}</b><small>${fdt(m.sentAt)}</small><details><summary>Dekho</summary><div class="pre">${esc(m.body)}</div></details></div>`).join('')||'<p class="mut">Koi mail nahi</p>')+
-  `<div class="bar"><button class="b o" onclick="closeM()">Band karo</button></div>`)}
+  `<div class="bar"><button class="b" onclick="newWork('','${id}')">+ Naya kaam add karo</button><button class="b o" onclick="closeM()">Band karo</button></div>`)}
 
 /* ---- Quick Mail / Settings ---- */
 function vMail(){$('#v').innerHTML=`<h2>Quick Mail</h2><p class="mut">Kisi bhi client ko AI ki madad se mail likho.</p><button class="b" onclick="compose({})">Mail likho</button>`}
