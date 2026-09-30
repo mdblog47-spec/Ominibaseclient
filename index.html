@@ -79,7 +79,7 @@ const NO_LOCK=false;
 const AUTO_PW=''; // Apps Script me APP_PASSWORD set hai to yahan wahi password likho, warna khali chhod do
 const SERVICES=['Control Management System','Attendance Management System','Custom Form','Website'];
 const MODES=['Cash','UPI','Bank','Cheque'];
-const PURPOSES=[['general','General update'],['started','Kaam start'],['update_received','Request mili'],['update_completed','Update complete'],['payment','Payment reminder'],['payment_received','Payment mil gaya'],['final_summary','Final thank-you']];
+const PURPOSES=[['general','General update'],['started','Kaam start'],['update_received','Request mili'],['update_completed','Update complete'],['work_completed','Kaam complete (client ko batao)'],['payment','Payment reminder'],['payment_received','Payment mil gaya'],['final_summary','Final thank-you']];
 const PAYP=['payment','payment_received','final_summary'];
 const STAGES=['Upcoming','Running','Completed'];
 const $=s=>document.querySelector(s);
@@ -168,7 +168,7 @@ function draw(){if(!PW&&!NO_LOCK)return;nav();({work:vWork,cli:vCli,hist:vHist,m
 function acts(p){
   if(p.status==='Upcoming')return `<button class="b" onclick="event.stopPropagation();setStage('${p.id}','Running')">Running karo</button>`;
   if(p.status==='Running')return `<button class="b" onclick="event.stopPropagation();setStage('${p.id}','Completed')">Complete karo</button><button class="b o" onclick="event.stopPropagation();newWork('${p.id}')">Edit</button>`;
-  return p.dues>0?`<span class="badge">Payment baaki</span>`:`<button class="b" onclick="event.stopPropagation();arch('${p.id}',true)">Client history me bhejo</button>`}
+  return (p.dues>0?`<span class="badge">Payment baaki</span>`:`<button class="b" onclick="event.stopPropagation();arch('${p.id}',true)">Client history me bhejo</button>`)+`<button class="b o" onclick="event.stopPropagation();offerDone('${p.id}',true)">Complete mail</button>`}
 function wcard(p){return `<div class="wc nsel"><div><b>${esc(p.clientName)}</b><small>${esc(p.phone)} ${esc(p.email)}</small>${cl(p.clientId).company?`<small>${esc(cl(p.clientId).company)}</small>`:''}</div>
   <div>${esc(p.service)}${p.pending?` <span class="badge">${p.pending} request</span>`:''}</div>
   <div class="nums"><span>Days<b>${p.days||'-'}</b></span><span>Total<b>${money(p.total)}</b></span><span>Paid<b>${money(p.paid)}</b></span><span>Dues<b class="${p.dues>0?'du':''}">${money(p.dues)}</b></span></div><div>${acts(p)}<button class="b o" onclick="cpage('${p.clientId}')">Details</button></div></div>`}
@@ -176,7 +176,11 @@ function vWork(){
   const live=S.projects.filter(p=>!p.archived);
   $('#v').innerHTML=`<div class="bar"><button class="b" onclick="newWork()">+ Naya kaam</button><button class="b o" onclick="compose({})">Mail likho</button></div>`+
   STAGES.map(st=>{const L=live.filter(p=>p.status===st);return `<h2 class="s-${st}">${st} <span class="cnt">${L.length}</span></h2><div class="grid">${L.map(wcard).join('')||'<p class="mut">Koi kaam nahi</p>'}</div>`}).join('')}
-async function setStage(id,status){const p=pr(id),old=p.status;p.status=status;saveLocal();draw();const r=await run(()=>api('updateProject',{projectId:id,patch:{status}}),status+' ho gaya');if(!r){p.status=old;draw()}else sync()}
+/* Kaam Completed hote hi client ko mail: confirm -> AI drafts apne aap ban jate hain */
+function offerDone(id,direct){const p=pr(id);if(!p)return;
+  if(!direct&&!confirm('"'+p.clientName+' — '+p.service+'" Completed ho gaya.\nClient ko \"Kaam complete\" mail bhejna hai?'))return;
+  compose({clientId:p.clientId,projectId:id,purpose:'work_completed',work:p.service+' — kaam complete',details:''});gen()}
+async function setStage(id,status){const p=pr(id),old=p.status;p.status=status;saveLocal();draw();const r=await run(()=>api('updateProject',{projectId:id,patch:{status}}),status+' ho gaya');if(!r){p.status=old;draw()}else{sync();if(status==='Completed'&&old!=='Completed')offerDone(id)}}
 async function arch(id,archived){const r=await run(()=>api('setArchived',{projectId:id,archived}),archived?'History me bhej diya':'Wapas Completed me aa gaya');if(r){const p=pr(id);if(p){p.archived=archived;saveLocal()}closeM();draw();sync()}}
 let _nc='';
 function newWork(id,pcid){
@@ -198,7 +202,7 @@ async function saveWork(eid){
   const cf={name:$('#cn').value,phone:$('#cp').value,email:$('#ce').value,company:$('#cb').value};
   $('#svb').disabled=true;
   if(eid){ // ---- edit ----
-    const p=pr(eid),c=cl(p.clientId);
+    const p=pr(eid),c=cl(p.clientId),oldSt=p.status;
     if(['name','phone','email','company'].some(k=>(c[k]||'')!==cf[k])){
       const r1=await run(()=>api('updateClient',{client:Object.assign({id:p.clientId},cf)}));
       if(!r1){$('#svb').disabled=false;return}
@@ -206,7 +210,7 @@ async function saveWork(eid){
     const r=await run(()=>api('updateProject',{projectId:eid,patch:body}),'Kaam update ho gaya');
     if(!r){$('#svb').disabled=false;return}
     Object.assign(p,{plan:+body.plan,service:body.service,status:body.status,days:+body.days,total:+body.total,note:body.note,dues:Math.max(0,+body.total-p.paid)});
-    saveLocal();closeM();draw();sync();return}
+    saveLocal();closeM();draw();sync();if(body.status==='Completed'&&oldSt!=='Completed')offerDone(eid);return}
   // ---- naya kaam ----
   const p=Object.assign({},body,{paid:$('#ad').value,payMode:$('#am').value});let cid=$('#nc').value;
   if(!cid){
@@ -255,7 +259,7 @@ async function payHist(id){
   ${pa.map((x,i)=>`<div class="card"><b>${lb(i)}</b> · ${money(x.amount)} · ${esc(x.mode||'-')}<small>${fdt(x.paidAt)}${x.note?' · '+esc(x.note):''}</small></div>`).join('')||'<p class="mut">Abhi koi payment nahi</p>'}
   <div class="bar"><button class="b o" onclick="compose({clientId:'${p.clientId}',projectId:'${id}',purpose:'payment',work:'Payment history',includeMoney:true})">Mail bhejo</button><button class="b o" onclick="closeM()">Band karo</button></div>`)}
 function nowLocal(){const d=new Date();d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,16)}
-async function saveDetail(id){const patch={status:$('#ds').value,days:$('#dd').value,total:$('#dt').value,note:enc($('#dn').value),plan:$('#dp').value};const r=await run(()=>api('updateProject',{projectId:id,patch}),'Save ho gaya');if(r){const p=pr(id);Object.assign(p,{plan:+patch.plan,status:patch.status,days:+patch.days,total:+patch.total,note:patch.note,dues:+patch.total-p.paid});saveLocal();draw();sync()}}
+async function saveDetail(id){const patch={status:$('#ds').value,days:$('#dd').value,total:$('#dt').value,note:enc($('#dn').value),plan:$('#dp').value};const oldSt=pr(id).status;const r=await run(()=>api('updateProject',{projectId:id,patch}),'Save ho gaya');if(r){const p=pr(id);Object.assign(p,{plan:+patch.plan,status:patch.status,days:+patch.days,total:+patch.total,note:patch.note,dues:+patch.total-p.paid});saveLocal();draw();sync();if(patch.status==='Completed'&&oldSt!=='Completed'){closeM();offerDone(id)}}}
 async function delWork(id){const p=pr(id);if(!confirm(`"${p.clientName} — ${p.service}" delete karein? Uski payments aur requests bhi delete ho jayengi.`))return;
   const r=await run(()=>api('deleteProject',{projectId:id}),'Kaam delete ho gaya');if(r){S.projects=S.projects.filter(x=>x.id!==id);saveLocal();closeM();draw()}}
 async function addPay(id){
