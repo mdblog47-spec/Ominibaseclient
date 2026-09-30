@@ -187,7 +187,7 @@ function cpage(cid){
   modal(`<h3>${esc(c.name)}</h3><small>${c.company?esc(c.company)+' · ':''}${esc(c.phone)} · ${esc(c.email)}</small>
   <div class="nums"><span>Kaam<b>${L.length}</b></span><span>Total<b>${money(t)}</b></span><span>Mila<b>${money(pd)}</b></span><span>Baaki<b class="${t-pd>0?'du':''}">${money(t-pd)}</b></span></div>
   <div class="bar"><button class="b o" onclick="cliForm('${cid}')">Client details edit</button></div>
-  <h2>Services</h2>${L.map(p=>`<div class="card" style="cursor:pointer" onclick="detail('${p.id}')"><b>${esc(p.service)}</b> <span class="badge ${p.status==='Completed'?'g':''}">${p.status}</span><small>${pl(p)>1?'3 installment':'Ek baar payment'} · Days ${p.days||'-'} · Total ${money(p.total)} · Mila ${money(p.paid)} · Baaki ${money(p.dues)}</small></div>`).join('')||'<p class="mut">Abhi koi kaam nahi</p>'}
+  <h2>Services</h2>${L.map(p=>`<div class="card" style="cursor:pointer" onclick="detail('${p.id}')"><b>${esc(p.service)}</b> <span class="badge ${p.status==='Completed'?'g':''}">${p.status}</span><small>${pl(p)>1?'3 installment':'Ek baar payment'} · Days ${p.days||'-'} · Total ${money(p.total)} · Mila ${money(p.paid)} · <b style="color:${p.dues>0?'var(--bad)':'inherit'}">Baaki ${money(p.dues)}</b></small></div>`).join('')||'<p class="mut">Abhi koi kaam nahi</p>'}
   <div class="bar"><button class="b o" onclick="closeM()">Band karo</button></div>`)}
 
 /* ---- Project detail (turant khulta hai, lists baad me aati hain) ---- */
